@@ -3,8 +3,9 @@
 Polls funding, open interest, top-trader / global long-short ratios and
 taker buy/sell volume for the top-N perpetuals every 5 minutes, into sqlite.
 
-    python3 collector.py          # run forever
-    python3 collector.py --once   # one cycle then exit
+    python3 collector.py            # run forever
+    python3 collector.py --once     # one cycle then exit
+    python3 collector.py --backfill # one cycle, pulling 1000 candles of price history
 """
 import json
 import sqlite3
@@ -17,6 +18,12 @@ BASE = "https://fapi.binance.com"
 DB = "data.db"
 TOP_N = 50          # symbols per cycle; 5 data calls each, limit is 1000 req / 5 min per IP
 PERIOD_MS = 300_000  # 5m, matches Binance data-endpoint granularity
+
+SCHEMA_KLINES = """CREATE TABLE IF NOT EXISTS klines (
+  ts INTEGER, symbol TEXT,
+  open REAL, high REAL, low REAL, close REAL, volume REAL,
+  quote_vol REAL, trades INTEGER, taker_buy_base REAL,
+  PRIMARY KEY (ts, symbol))"""
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS positioning (
   ts INTEGER, symbol TEXT,
@@ -56,7 +63,17 @@ def build_row(ts, sym, prem, tick, oi, top_acct, top_pos, glob, taker):
     )
 
 
-def collect_once(db):
+def save_klines(db, sym, limit):
+    """Store 5m candles. Unlike the positioning endpoints, klines have full history,
+    so this can backfill years in one call."""
+    rows = [(int(k[0]), sym, float(k[1]), float(k[2]), float(k[3]), float(k[4]),
+             float(k[5]), float(k[7]), int(k[8]), float(k[9]))
+            for k in get("/fapi/v1/klines", symbol=sym, interval="5m", limit=limit)]
+    db.executemany("INSERT OR REPLACE INTO klines VALUES (" + ",".join("?" * 10) + ")", rows)
+    return len(rows)
+
+
+def collect_once(db, kline_limit=3):
     ts = int(time.time() * 1000) // PERIOD_MS * PERIOD_MS
     prem = {p["symbol"]: p for p in get("/fapi/v1/premiumIndex")}
     tickers = get("/fapi/v1/ticker/24hr")
@@ -69,6 +86,7 @@ def collect_once(db):
                                   d("openInterestHist"), d("topLongShortAccountRatio"),
                                   d("topLongShortPositionRatio"), d("globalLongShortAccountRatio"),
                                   d("takerlongshortRatio")))
+            save_klines(db, sym, kline_limit)
         except Exception as e:
             print(f"skip {sym}: {e}", file=sys.stderr)
         time.sleep(0.1)
@@ -81,15 +99,18 @@ def collect_once(db):
 def main():
     db = sqlite3.connect(DB)
     db.execute(SCHEMA)
+    db.execute(SCHEMA_KLINES)
+    if "--backfill" in sys.argv:
+        return collect_once(db, kline_limit=1000)
     if "--once" in sys.argv:
         return collect_once(db)
     while True:
-        # ponytail: wake 30s after each 5m boundary; Binance publishes data on the boundary
-        time.sleep(PERIOD_MS / 1000 - time.time() % (PERIOD_MS / 1000) + 30)
         try:
             collect_once(db)
         except Exception as e:
             print(f"cycle failed: {e}", file=sys.stderr)
+        # ponytail: wake 30s after each 5m boundary; Binance publishes data on the boundary
+        time.sleep(PERIOD_MS / 1000 - time.time() % (PERIOD_MS / 1000) + 30)
 
 
 if __name__ == "__main__":
