@@ -30,24 +30,32 @@ out-of-sample excess over buy-and-hold is > 0 **and** 30 days of paper match.
 
 ## What is running, and where
 
-On the Mac this was written on (**stops if that Mac sleeps or is shut down**):
+Moved to the Windows PC (F:\CryptoBro) on 2026-09-05. Three scheduled tasks,
+registered by `deploy\windows\install.ps1`, run from logon with no window
+(user tasks: a reboot nobody logs in after runs nothing, same as launchd was):
 
-| thing | how | note |
+| task | does | log |
 |---|---|---|
-| collector (5 m klines + positioning → `data.db`) | launchd `com.b100per.cryptobro` | `data.db` is 1.2 GB, **not in git** |
-| retention rollup 04:30 | launchd `com.b100per.cryptobro.retention` | |
-| control panel + both paper books | `python3 control.py` on `127.0.0.1:8787` | token in `.env` as `CONTROL_TOKEN` |
-| dashboard watcher | `dashboard.py --watch` → `dashboard.html` | lab results view |
+| `CryptoBro collector` | `collector.py` forever, restarted a minute after any exit | `logs\collector.log` |
+| `CryptoBro retention` | `retention.py --days 45` daily 04:30 | `logsetention.log` |
+| `CryptoBro control` | `control.py` on `127.0.0.1:8787`, token lifted from `.env` | `logs\control.log` |
 
-Paper books: `paper_chart.db`, `paper_volmom.db`, schedule state `control_state.json` —
-**not in git**. Copy them if you want the history; otherwise they restart from 1000 USDT.
-The old launchd paper agent is unloaded; the panel is the only scheduler.
+`Get-ScheduledTask "CryptoBro *"` shows them; `Start-/Stop-ScheduledTask` drives them.
+`data.db` was rebuilt here with `collector.py --history 90` (TH klines 90 days;
+positioning starts from 2026-09-05 because Binance keeps 30 days and the
+Mac's collected history was not copied). The paper books start fresh unless
+`paper_chart.db`, `paper_volmom.db`, `control_state.json` are copied from the Mac.
+
+The Mac's launchd agents should be unloaded so it stops collecting too:
+`launchctl bootout gui/$(id -u)/com.b100per.cryptobro` and the same for
+`.retention`. The cloud books (Firebase, below) run regardless of any machine.
 
 ## To resume on the new machine
 
 ```bash
 git clone https://github.com/B100per/CryptoBro.git && cd CryptoBro
 cp /path/from/old/mac/.env .          # or recreate, see below — never commit it
+# Windows instead of the last two lines: powershell -ExecutionPolicy Bypass -File deploy\windows\install.ps1
 for f in test_*.py signals.py book.py cloud/functions/test_step.py; do python3 $f; done  # all print ok
 python3 collector.py --once           # small data.db to start with
 CONTROL_TOKEN=$(grep CONTROL_TOKEN .env | cut -d= -f2) python3 control.py
@@ -119,5 +127,5 @@ Research (backtests, lab) stays local: it needs the 1.2 GB database.
 | `dashboard.py`, `progress.py` | self-refreshing HTML views |
 | `trade.py`, `binance_th.py`, `binance_client.py`, `risk.py` | the only path to real orders |
 | `cloud/` | Firebase: `functions/step.py` + `main.py` (the 12 h step), `public/index.html` (the panel) |
-| `deploy/` | systemd units + `install.sh` for a VPS; `control.service` for the panel |
+| `deploy/` | systemd units + `install.sh` for a VPS; `deploy/windows/` scheduled tasks + `install.ps1` for a PC |
 | `lab_*.out` | measured results, see above |
