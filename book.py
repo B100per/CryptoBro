@@ -63,6 +63,28 @@ def rebalance(cash, held, prices, picks, now, fee=0.001, nudge=0.02):
     return round(cash, 8), held, fills
 
 
+def stop_out(cash, held, prices, stop, now, fee=0.001):
+    """Sell every holding priced at or below (1 - stop) of its entry.
+
+    Runs between rebalances, on live prices, so a crash is met within minutes
+    instead of at the next scheduled step. stop=0 disables it. Same return
+    shape as rebalance; a coin that has no price is left alone.
+    """
+    held = dict(held)
+    fills = []
+    if not stop:
+        return cash, held, fills
+    for sym, (units, entry) in list(held.items()):
+        px = prices.get(sym)
+        if px is None or px > entry * (1 - stop):
+            continue
+        proceeds = units * px
+        cash += proceeds * (1 - fee)
+        del held[sym]
+        fills.append((now, "STOP", sym, units, px, proceeds * fee))
+    return round(cash, 8), held, fills
+
+
 def value(cash, held, prices):
     holdings = sum(u * prices[s] for s, (u, _) in held.items() if s in prices)
     return cash, holdings, cash + holdings
@@ -87,6 +109,15 @@ def demo():
     cash, held, fills = rebalance(cash, held, px, [], now=3)
     assert held == {} and cash > 980
     assert is_stable_pair("USDCUSDT") and not is_stable_pair("BTCUSDT")
+
+    # stop-loss: a coin 15% under its entry is sold, one 10% under is kept,
+    # a coin with no price is kept, and stop=0 touches nothing
+    held = {"AAAUSDT": (10.0, 10.0), "BBBUSDT": (5.0, 20.0), "CCCUSDT": (1.0, 5.0)}
+    px2 = {"AAAUSDT": 8.5, "BBBUSDT": 18.0}
+    cash, after, fills = stop_out(100.0, held, px2, 0.15, now=4)
+    assert set(after) == {"BBBUSDT", "CCCUSDT"} and [f[1] for f in fills] == ["STOP"]
+    assert abs(cash - (100 + 85 * 0.999)) < 1e-9, cash
+    assert stop_out(100.0, held, px2, 0.0, now=4) == (100.0, held, [])
     print("ok")
 
 

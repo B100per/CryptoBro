@@ -9,7 +9,7 @@ os.environ["CONTROL_TOKEN"] = "s3cret"
 import control
 control.STATE_FILE = os.environ["CONTROL_STATE"]
 control.TOKEN = "s3cret"
-control.MARK_EVERY = 60          # the test's interval is 100; a mark must fall between steps
+control.MARK_EVERY = 30          # the test's interval is 100; two marks must fit between steps
 for k, st in enumerate(control.STRATEGIES):
     st["db"] = os.path.join(d, f"book{k}.db")
 paper.breadth = lambda *a, **k: 1.0
@@ -27,7 +27,7 @@ s = control.load_state(); s["interval"] = 100; s["next_step"] = s["next_mark"] =
 assert control.tick(now=999) is False
 assert control.tick(now=1000) is True
 assert control.load_state()["next_step"] == 1100
-assert control.tick(now=1050) is False
+assert control.tick(now=1020) is False
 # every book stepped once, each in its own file
 assert all(paper.status(paper.db(x["db"]))["steps"] == 1 for x in control.STRATEGIES)
 # between steps, a mark every MARK_EVERY seconds values the books without trading
@@ -37,6 +37,14 @@ assert all(paper.status(paper.db(x["db"]))["steps"] == 2 for x in control.STRATE
 assert control.tick(now=1000 + control.MARK_EVERY + 10) is False
 assert all(paper.status(paper.db(x["db"]))["steps"] == 2 for x in control.STRATEGIES), "not yet due again"
 assert [paper.db(x["db"]).execute("SELECT count(*) FROM fills").fetchone()[0] for x in control.STRATEGIES] == before, "a mark trades nothing"
+# ...unless a book's stop-loss fires: the volmom book carries one, the chart book does not
+paper.prices = lambda: {"AAAUSDT": 8.0, "BBBUSDT": 20.0}      # AAA -20%
+assert control.tick(now=1000 + 2 * control.MARK_EVERY) is False
+stopped = [paper.db(x["db"]).execute("SELECT count(*) FROM fills WHERE side='STOP'").fetchone()[0] for x in control.STRATEGIES]
+assert stopped == [1 if x.get("stop") else 0 for x in control.STRATEGIES], stopped
+assert any("stop-loss sold AAAUSDT" in l for l in control.LOG)
+paper.prices = lambda: {"AAAUSDT": 10.0, "BBBUSDT": 20.0}
+assert control.DEFAULT_INTERVAL == 129600, "36 h: the cadence the rules passed at"
 assert len({x["db"] for x in control.STRATEGIES}) == len(control.STRATEGIES)
 control.set_running(False)
 assert control.tick(now=5000) is False, "stopped must mean stopped"

@@ -1,8 +1,11 @@
 """Firebase glue around step.py: a clock, a button, and Firestore.
 
-    paper_step   Cloud Scheduler, every 12 h. Steps both books if control/state
-                 says running. This is the whole forward test once deployed.
-    step_now     Callable from the page: "Run one step now". Owner only.
+    paper_step   Cloud Scheduler, every 36 h. Rebalances both books if
+                 control/state says running. (12 h until 2026-09-05: both rules
+                 fail the worst-case test at 12 h and pass at 36 h, lab.out.)
+    paper_watch  Cloud Scheduler, every 5 min while running: one price call,
+                 a mark on each book, and the stop-loss (step.watch).
+    step_now     Callable from the page: "Rebalance now". Owner only.
 
 Books live at books/{chart,volmom} (see step.step for the document shape),
 each fill under books/{name}/fills. The page can only read them; this
@@ -51,11 +54,31 @@ def _run(db, reason):
     db.document("control/state").set({"last_step": now}, merge=True)
 
 
-@scheduler_fn.on_schedule(schedule="every 12 hours", **RUN)
+@scheduler_fn.on_schedule(schedule="every 36 hours", **RUN)
 def paper_step(event: scheduler_fn.ScheduledEvent) -> None:
     state = firestore.client().document("control/state").get().to_dict() or {}
     if state.get("running"):
         run("schedule")
+
+
+@scheduler_fn.on_schedule(schedule="every 5 minutes", timeout_sec=60,
+                          memory=options.MemoryOption.MB_256)
+def paper_watch(event: scheduler_fn.ScheduledEvent) -> None:
+    db = firestore.client()
+    state = db.document("control/state").get().to_dict() or {}
+    if not state.get("running") or state.get("stepping"):
+        return                      # a rebalance in flight owns the books
+    prices = {t["symbol"]: float(t["price"]) for t in step.get("/api/v1/ticker/price")}
+    for st in step.STRATEGIES:
+        ref = db.document(f"books/{st['name']}")
+        current = ref.get().to_dict()
+        if not current:
+            continue                # no rebalance yet: nothing to value
+        doc, fills = step.watch(current, st, prices)
+        ref.set(doc, merge=True)
+        for f in fills:
+            ref.collection("fills").add(f)
+            print(f"{st['title']}: stop-loss sold {f['symbol']} at {f['price']}")
 
 
 @https_fn.on_call(**RUN)

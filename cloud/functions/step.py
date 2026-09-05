@@ -28,12 +28,14 @@ BARS = 2017               # 7 d of 5 m bars + 1: what vol-scaled momentum needs
 PAGE = 1000               # the most binance.th returns per klines call
 
 # Same two books as control.STRATEGIES; `name` is the Firestore document id.
+# `stop` is the stop-loss watch() applies between rebalances (lab_stop.out).
 STRATEGIES = [
-    {"name": "chart", "title": "chart + breadth 60%",
+    {"name": "chart", "title": "chart + breadth 60%", "stop": 0.0,
      "rule": "chart", "breadth_floor": 0.6, "min_vol": 2000, "min_score": 0.5},
-    {"name": "volmom", "title": "vol-scaled momentum 7d",
+    {"name": "volmom", "title": "vol-scaled momentum 7d", "stop": 0.15,
      "rule": "volmom", "breadth_floor": 0.0, "min_vol": 2000, "min_score": 0.0},
 ]
+MARKS = 288 * 7           # 5-minute marks kept on the book (`watch`): a week, ~80 KB
 
 
 def get(path, tries=3, **params):
@@ -153,5 +155,29 @@ def step(state, st, bars, prices, now=None):
            "held": {s: list(v) for s, v in held.items()}, "curve": curve,
            "marks": {s: prices[s] for s in held},      # so the page can value each coin
            "picks": picks, "scored": len(sc), "updated": now}
+    return doc, [dict(zip(("ts", "side", "symbol", "units", "price", "fee"), f))
+                 for f in fills]
+
+
+def watch(state, st, prices, now=None):
+    """Between rebalances: value the book at live prices and fire its stop.
+
+    Appends a mark to `watch` (capped at a week) and, when a holding is at or
+    under (1 - stop) of its entry, sells it (book.stop_out). Returns the
+    fields to merge into the document and the fills. No bars are fetched:
+    one price call serves both books.
+    """
+    now = now or int(time.time() * 1000)
+    state = state or {}
+    held = {s: tuple(v) for s, v in state.get("held", {}).items()}
+    cash, held, fills = book.stop_out(state.get("cash", START_EQUITY), held, prices,
+                                      st.get("stop", 0.0), now, fee=FEE)
+    _, holdings, equity = book.value(cash, held, prices)
+    doc = {"watch": (state.get("watch", []) + [{"ts": now, "equity": equity}])[-MARKS:],
+           "marks": {s: prices[s] for s in held if s in prices},   # live prices for the table
+           "equity": equity, "holdings": holdings, "marked": now}
+    if fills:
+        doc.update(cash=cash, held={s: list(v) for s, v in held.items()},
+                   watch_note=f"stop-loss sold {', '.join(f[2] for f in fills)}")
     return doc, [dict(zip(("ts", "side", "symbol", "units", "price", "fee"), f))
                  for f in fills]

@@ -129,21 +129,30 @@ def breadth(bars=288, quote="USDT"):
     return up / tot if tot else 1.0
 
 
-def mark(c, now=None):
-    """Value the portfolio at current prices without trading.
+def mark(c, now=None, stop=0.0):
+    """Value the portfolio at current prices, trading nothing unless a stop hits.
 
     Watching a position for half an hour is worth doing; paying a round trip
-    every minute to do it is not. This records the curve and touches nothing.
+    every minute to do it is not. This records the curve and, with `stop`,
+    sells only what has fallen through its floor (see book.stop_out): the one
+    exit that cannot wait for the next scheduled step.
     """
     now = now or int(time.time() * 1000)
     px = prices()
-    bal = cash(c)
-    holdings = sum(u * px[s] for s, u, _, _ in c.execute("SELECT * FROM positions")
-                   if s in px)
+    held = {s: (u, e) for s, u, e, _ in c.execute("SELECT * FROM positions")}
+    bal, held, fills = book.stop_out(cash(c), held, px, stop, now, fee=FEE)
+    if fills:
+        c.execute("DELETE FROM positions")
+        c.executemany("INSERT INTO positions VALUES (?,?,?,?)",
+                      [(sym, u, e, now) for sym, (u, e) in held.items()])
+        c.executemany("INSERT INTO fills VALUES (?,?,?,?,?,?)", fills)
+        cash(c, bal)
+    _, holdings, _ = book.value(bal, held, px)
     c.execute("INSERT OR REPLACE INTO equity VALUES (?,?,?,?)",
               (now, bal, holdings, bal + holdings))
     c.commit()
-    return {"equity": bal + holdings, "cash": bal, "holdings": holdings}
+    return {"equity": bal + holdings, "cash": bal, "holdings": holdings,
+            "stopped": [f[2] for f in fills]}
 
 
 def step(c, now=None, rule="chart", breadth_floor=0.0, min_vol=0.0, min_score=None):
