@@ -37,4 +37,11 @@ assert "waiting for the second mark" in dashboard.render(db, None)
 c.execute("INSERT INTO positions VALUES ('<script>x</script>', 1, 1, 1)")
 c.commit()
 assert "<script>x" not in dashboard.render(db, None)
+# Several lab files render in order, each under its own name; a missing one is skipped.
+a, b = os.path.join(d, "a.out"), os.path.join(d, "b.out")
+open(a, "w").write("hdr\nrow-from-a\nx")
+open(b, "w").write("hdr\nrow-from-b\ny")
+multi = dashboard.render(db, f"{a},{os.path.join(d, 'nope.out')},{b}")
+assert multi.index("row-from-a") < multi.index("row-from-b")
+assert "nope.out" not in multi
 print("ok")
