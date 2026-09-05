@@ -98,7 +98,7 @@ footer{font-size:12px;color:var(--mut)}
   <div class=g3>
     <div class="card span2">
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div><h2>Equity by strategy</h2><div class=sub>USDT · recorded every 12 h</div></div>
+        <div><h2>Equity by strategy</h2><div class=sub>USDT · marked every 5 min, rebalanced every 36 h</div></div>
         <div class=legend id=legend></div>
         <div class=chips style="margin-left:auto" id=ranges>
           <span class=chip data-r=1>1D</span><span class="chip on" data-r=30>1M</span><span class=chip data-r=365>1Y</span><span class=chip data-r=0>All</span>
@@ -119,7 +119,7 @@ footer{font-size:12px;color:var(--mut)}
     <div class=tbl><table><thead><tr><th>Coin</th><th>Strategy</th><th class=n>Units</th><th class=n>Entry</th><th class=n>Price</th><th class=n>Value (USDT)</th><th class=n>P&amp;L</th><th>Weight</th></tr></thead><tbody id=rows></tbody></table></div>
   </div>
 
-  <footer>Two rules run on the same 12-hour clock, each in its own paper book, so the market can say which one the backtest described.
+  <footer>Two rules run on the same 36-hour clock, each in its own paper book, so the market can say which one the backtest described. Between rebalances the books are valued every 5 minutes, and the momentum book sells anything 15% under its entry.
   A rebalance is a Cloud Function that reads the Binance TH board and writes rows to Firestore; no exchange key exists on this project, so it cannot place an order even if asked.</footer>
 </div>
 
@@ -196,9 +196,17 @@ function barChart(vals, labels, w = 880, h = 220, bar = 20, [t, r, b, l] = [14, 
 }
 
 // ── arithmetic over the books' equity curves ───────────────────────────
+// A book's curve is its rebalance points plus the 5-minute marks of the last
+// week, merged by timestamp: the marks give the intraday shape, the rebalance
+// points keep the long history.
+const pts = b => {
+  const m = new Map();
+  for (const p of [...(b.curve || []), ...(b.watch || [])]) m.set(p.ts, p.equity);
+  return [...m].sort((x, y) => x[0] - y[0]).map(([ts, equity]) => ({ts, equity}));
+};
 const at = (curve, ts) => { let v = null; for (const p of curve) { if (p.ts > ts) break; v = p.equity; } return v; };
 function totalCurve() {
-  const cs = Object.values(books).map(b => b.curve || []).filter(c => c.length);
+  const cs = Object.values(books).map(pts).filter(c => c.length);
   if (!cs.length) return [];
   const stamps = [...new Set(cs.flatMap(c => c.map(p => p.ts)))].sort((a, b) => a - b);
   // a book that has not stepped yet is still worth its starting cash
@@ -246,7 +254,7 @@ function render() {
   tile("t-yr", pnlSince(total, yrKey, base), "vs last year");
 
   const since = range ? Date.now() - range * 86400e3 : 0;
-  const series = names.map(n => ({name: books[n].title, color: COLOR[n], pts: (books[n].curve || []).filter(p => p.ts >= since).map(p => ({t: p.ts, v: p.equity}))})).filter(s => s.pts.length);
+  const series = names.map(n => ({name: books[n].title, color: COLOR[n], pts: pts(books[n]).filter(p => p.ts >= since).map(p => ({t: p.ts, v: p.equity}))})).filter(s => s.pts.length);
   $("legend").innerHTML = names.map(n => `<span><i style="background:${COLOR[n]}"></i>${esc(books[n].title)}</span>`).join("");
   $("line").innerHTML = lineChart(series);
   const d = periodBars(total, dayKey, 30, base, k => thDate(new Date(k + "T00:00").getTime()));

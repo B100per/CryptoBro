@@ -87,6 +87,20 @@ doc3, fills = step.step(doc2, volmom, falling, px2, now=3)
 assert doc3["held"] == {} and [f["side"] for f in fills] == ["SELL"] and doc3["cash"] > 0
 assert doc3["max_drawdown_pct"] >= 0 and [p["ts"] for p in doc3["curve"]] == [1, 2, 3]
 
+# ── watch: a mark between rebalances, and the stop-loss on the volmom book ──
+w, fills = step.watch(doc, volmom, px, now=5)
+assert fills == [] and w["watch"] == [{"ts": 5, "equity": doc["equity"]}] and "held" not in w
+assert w["marks"] == {"UPUSDT": px["UPUSDT"]}, "the table still gets live prices"
+crash = {**px, "UPUSDT": px["UPUSDT"] * 0.8}                 # -20% > the 15% stop
+w2, fills = step.watch({**doc, **w}, volmom, crash, now=6)
+assert [f["side"] for f in fills] == ["STOP"] and w2["held"] == {} and w2["cash"] > 0
+assert [m["ts"] for m in w2["watch"]] == [5, 6] and "stop-loss sold UPUSDT" in w2["watch_note"]
+chart_doc = {**doc, "held": doc["held"]}                     # same holding, no stop on this book
+w3, fills = step.watch(chart_doc, chart, crash, now=6)
+assert fills == [] and "held" not in w3, "the chart book carries no stop"
+long = {**doc, "watch": [{"ts": i, "equity": 1.0} for i in range(step.MARKS)]}
+assert len(step.watch(long, volmom, px, now=9)[0]["watch"]) == step.MARKS, "capped at a week"
+
 # what goes to Firestore must survive JSON and must not nest arrays in arrays
 json.dumps(doc3)
 assert not any(isinstance(x, list) for v in doc3.values() if isinstance(v, list) for x in v)

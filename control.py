@@ -32,16 +32,20 @@ from dashboard import spark
 
 STATE_FILE = os.environ.get("CONTROL_STATE", "control_state.json")
 TOKEN = os.environ.get("CONTROL_TOKEN", "")
-DEFAULT_INTERVAL = 43200          # 12h, the cadence the forward test runs at
+# 36 h. Both rules FAIL the worst-case test at 12 h and pass only at 36 h
+# (lab.out, lab_stop.out); the panel ran at 12 h until 2026-09-05 by mistake.
+DEFAULT_INTERVAL = 129600
 MARK_EVERY = 300                  # 5 min: value the books at live prices, trading nothing
 LOG = deque(maxlen=60)
 
-# The rules the lab kept: worst case across start times positive, on coins a
-# real order could fill. Each keeps its own book so they can be compared.
+# The rules the lab kept, on coins a real order could fill. Each keeps its own
+# book so they can be compared. `stop` is a stop-loss checked at every mark:
+# lab_stop.out at 36 h says 15% lifts volmom's worst case from +18.8% to
+# +28.9% and cuts its drawdown; on the chart rule every stop level hurt.
 STRATEGIES = [
-    {"name": "chart + breadth 60%", "db": "paper_chart.db",
+    {"name": "chart + breadth 60%", "db": "paper_chart.db", "stop": 0.0,
      "rule": "chart", "breadth_floor": 0.6, "min_vol": 2000, "min_score": 0.5},
-    {"name": "vol-scaled momentum 7d", "db": "paper_volmom.db",
+    {"name": "vol-scaled momentum 7d", "db": "paper_volmom.db", "stop": 0.15,
      "rule": "volmom", "breadth_floor": 0.0, "min_vol": 2000, "min_score": 0.0},
 ]
 SESSIONS = set()
@@ -103,12 +107,15 @@ def run_step(reason):
 
 
 def run_mark():
-    """Value every book at live prices, no trading: the curve between steps.
-    Not logged; 288 lines a day would bury the steps in the activity panel."""
+    """Value every book at live prices between steps, and fire its stop-loss.
+    Marks are not logged (288 a day would bury the steps); stops are."""
     with STEP_LOCK:
         for st in STRATEGIES:
             try:
-                paper.mark(paper.db(st["db"]))
+                r = paper.mark(paper.db(st["db"]), stop=st.get("stop", 0.0))
+                if r["stopped"]:
+                    log(f"{st['name']}: stop-loss sold {', '.join(r['stopped'])}, "
+                        f"equity {r['equity']:.2f}")
             except Exception as e:
                 log(f"{st['name']} mark failed: {e}")
 
@@ -223,6 +230,7 @@ def card(st):
     pos = "".join(f"<tr><td>{html.escape(sym)}</td><td class=n>{u:,.4f}</td><td class=n>{e:,.6g}</td></tr>"
                   for sym, u, e in s.get("positions", []))
     gate = f" · cash when breadth &lt; {st['breadth_floor']:.0%}" if st["breadth_floor"] else ""
+    gate += f" · stop-loss {st['stop']:.0%}" if st.get("stop") else ""
     return f"""<div class=card>
   <h2>{html.escape(st['name'])}</h2>
   <div><span class=equity>{equity:,.2f}<small>USDT</small></span><span class="ret {cls}">{ret:+.2f}%</span></div>
@@ -367,7 +375,11 @@ def main():
         sys.exit("set CONTROL_TOKEN to something long and private first")
     arg = lambda n, d, c=str: c(sys.argv[sys.argv.index(n) + 1]) if n in sys.argv else d
     s = load_state()
-    s["interval"] = arg("--interval", s["interval"], int)
+    # The interval is configuration, not state: a stale value in the state
+    # file must not outlive a change to DEFAULT_INTERVAL.
+    s["interval"] = arg("--interval", DEFAULT_INTERVAL, int)
+    if s["last_step"]:
+        s["next_step"] = s["last_step"] + s["interval"]
     save_state(s)
     srv = serve(arg("--host", "127.0.0.1"), arg("--port", 8787, int))
     print(LOG[-1])

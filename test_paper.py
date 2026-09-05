@@ -73,3 +73,16 @@ assert c.execute("SELECT equity FROM equity WHERE ts=99").fetchone()[0] == m["eq
 c.execute("DELETE FROM positions")
 assert abs(paper.mark(c, now=100)["holdings"]) < 1e-12
 print("ok")
+
+# A mark with a stop sells only what fell through its floor, and records it.
+c.execute("DELETE FROM positions")
+c.executemany("INSERT INTO positions VALUES (?,?,?,?)",
+              [("AAAUSDT", 10.0, 10.0, 100), ("BBBUSDT", 5.0, 20.0, 100)])
+paper.cash(c, 0.0)
+PX.update({"AAAUSDT": 8.0, "BBBUSDT": 19.0})            # -20% and -5%
+m = paper.mark(c, now=101, stop=0.15)
+assert m["stopped"] == ["AAAUSDT"] and abs(m["cash"] - 80 * (1 - paper.FEE)) < 1e-9, m
+assert {s for (s,) in c.execute("SELECT symbol FROM positions")} == {"BBBUSDT"}
+assert c.execute("SELECT side FROM fills ORDER BY rowid DESC LIMIT 1").fetchone()[0] == "STOP"
+assert paper.mark(c, now=102, stop=0.15)["stopped"] == [], "nothing else under the floor"
+print("ok")
