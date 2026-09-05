@@ -38,12 +38,16 @@ def vol_scaled_momentum(lookback):
         r = _returns(rows, i, lookback)
         if r is None:
             return None
-        steps = [rows[j][4] / rows[j - 1][4] - 1.0
-                 for j in range(i - lookback + 1, i + 1) if rows[j - 1][4] > 0]
+        # Sample the path at ~288 points whatever the horizon. Volatility over
+        # 30 days does not need 8,640 bars to estimate, and at 384 symbols a
+        # step that cost 8,640 ops was the difference between minutes and hours.
+        k = max(1, lookback // 288)
+        steps = [rows[j][4] / rows[j - k][4] - 1.0
+                 for j in range(i, i - lookback, -k) if rows[j - k][4] > 0]
         if len(steps) < 2:
             return None
         sd = statistics.pstdev(steps)
-        return None if sd <= 0 else r / (sd * (lookback ** 0.5))
+        return None if sd <= 0 else r / (sd * (len(steps) ** 0.5))
     fn.__name__ = f"volmom_{lookback}"
     return fn
 

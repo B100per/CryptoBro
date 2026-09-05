@@ -1,0 +1,16 @@
+symbols=384 bars=9,934,583 min_quote_vol=0
+
+excess over buy-and-hold, across 5 start times
+            signal  rebal   worst%   median%    best%  trades
+   chart (current)    144    -39.7      25.9    176.3     329
+   chart (current)    432     22.6      46.8    130.4     100
+       momentum 1d    144   -107.8    -102.7   -101.0     588
+       momentum 1d    432   -102.0     -96.4    -86.3     264
+ vol-scaled mom 1d    144    -89.1     -77.4    -55.4     714
+ vol-scaled mom 1d    432    -84.7     -55.4    -20.3     280
+       momentum 7d    144    -91.9     -82.1    -67.2     251
+       momentum 7d    432    -71.6     -20.4     36.6     129
+ vol-scaled mom 7d    144    -55.2     -31.3     21.5     311
+ vol-scaled mom 7d    432      4.6      56.5    242.6     155
+      momentum 30d    144    -75.3     -60.5    -50.6      89
+      momentum 30d    432    -52.3     -41.0    -28.6      47
