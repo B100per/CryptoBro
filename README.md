@@ -92,6 +92,21 @@ python3 binance_th.py --symbols  # pairs listed here that we have signals for
 since exiting can only reduce exposure. Minimum order is 100 THB on every THB
 pair, and about 5 USDT on the USDT pairs.
 
+## Dry run
+
+```bash
+python3 trade.py                 # plan against THB pairs, sends nothing
+python3 trade.py --quote USDT    # plan against USDT pairs (21 candidates)
+python3 trade.py --live          # send, after typing a confirmation phrase
+```
+
+Equal weight across the top-scoring coins, capped by whichever is smaller:
+`MAX_NOTIONAL_<quote>` or what is actually free in the account. Position count
+is set by the exchange minimum, not by preference: at a 100 THB floor, a 1000
+THB budget is ten slots and no more. Coins already held that still rank are
+left alone; ones that no longer rank are sold, unless the holding is dust
+below the pair minimum.
+
 ## Risk cap
 
 `MAX_NOTIONAL_USDT` is a hard ceiling on gross position notional. With no value
