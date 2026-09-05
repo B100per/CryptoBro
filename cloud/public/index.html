@@ -145,10 +145,13 @@ let books = {}, range = 30, unsub = [];
 
 // ── charts: the same picture the design draws, from live data ──────────
 function ticks(lo, hi, n) {
-  const span = hi - lo || 1; let step = 10 ** Math.floor(Math.log10(span / n));
+  // Never a span under 1 USDT: two books at 999.000999 and 999.000999000999
+  // gave a step of 5e-14, which does not move a float near 1000, and the loop
+  // ran until the array overflowed. The length cap is the belt to that brace.
+  const span = Math.max(hi - lo, 1); let step = 10 ** Math.floor(Math.log10(span / n));
   for (const m of [1, 2, 5, 10]) if (span / (step * m) <= n) { step *= m; break; }
   const a = Math.floor(lo / step) * step, out = [];
-  for (let v = a; v <= hi + step; v += step) out.push(+v.toFixed(6));
+  for (let v = a; v <= hi + step && out.length < 50; v += step) out.push(+v.toFixed(6));
   return out;
 }
 function lineChart(series, w = 880, h = 300, [t, r, b, l] = [16, 90, 36, 56]) {
