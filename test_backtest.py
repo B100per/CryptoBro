@@ -110,3 +110,26 @@ m, *_ = run({"UPUSDT": climbing}, top=1, rebalance=48, fee=0.0, min_score=0.0,
             score_fn=signals.momentum(96), window=96, min_quote_vol=1.0)
 assert m["steps"] > 0
 print("ok")
+
+# Market breadth: when most of the board is below where it was, hold cash even
+# though a coin still ranks. With the gate off the same coin is bought.
+n = WINDOW + 600
+bull = series([100 * (1.001 ** i) for i in range(n)])
+bears = {f"B{k}USDT": series([100 * (0.999 ** i) for i in range(n)]) for k in range(4)}
+board = {"UPUSDT": bull, **bears}
+mom = signals.momentum(96)
+off, _, _, _ = run(board, top=1, rebalance=48, fee=0.0, min_score=0.0,
+                   score_fn=mom, window=300)
+on, curve_on, _, _ = run(board, top=1, rebalance=48, fee=0.0, min_score=0.0,
+                         score_fn=mom, window=300, min_breadth=0.5, breadth_bars=288)
+assert off["trades"] >= 0 and off["steps"] > 0
+assert on["trades"] == 0, on["trades"]                        # 1 of 5 rising: stayed in cash
+assert all(abs(e - 1000.0) < 1e-9 for _, e in curve_on)     # and cash does not move
+
+# ...and a board that is mostly rising passes the gate.
+bulls = {f"U{k}USDT": series([100 * (1.001 ** i) for i in range(n)]) for k in range(4)}
+board2 = {**bulls, "DNUSDT": series([100 * (0.999 ** i) for i in range(n)])}
+on2, *_ = run(board2, top=1, rebalance=48, fee=0.0, min_score=0.0,
+              score_fn=mom, window=300, min_breadth=0.5, breadth_bars=288)
+assert on2["steps"] > 0 and on2["return_pct"] > 0, on2
+print("ok")
