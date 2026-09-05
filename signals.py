@@ -109,6 +109,33 @@ def volume_surge(recent=12, baseline=288, min_ratio=3.0):
     return fn
 
 
+def trend_broken(ema_bars=96, flow_bars=12, flow_floor=0.5):
+    """Has this coin's own rise ended? Two witnesses must agree.
+
+    Price: the close is under its EMA over `ema_bars` — the trend the coin was
+    bought for has rolled over. Flow: over the last `flow_bars`, less than
+    `flow_floor` of the volume was buyers crossing the spread, so the people
+    still trading it are mostly selling. One alone is a dip; both together is
+    an exit. If the bars carry no taker data, price decides on its own.
+    """
+    def fn(rows, i):
+        if i < ema_bars:
+            return False
+        k = 2.0 / (ema_bars + 1)
+        ema = rows[i - ema_bars][4]
+        for j in range(i - ema_bars + 1, i + 1):
+            ema += k * (rows[j][4] - ema)
+        under = rows[i][4] < ema
+        if len(rows[i]) < 7 or rows[i][6] is None:
+            return under
+        vol = sum(r[5] for r in rows[i - flow_bars + 1:i + 1])
+        buy = sum(r[6] or 0.0 for r in rows[i - flow_bars + 1:i + 1])
+        sellers = vol > 0 and buy / vol < flow_floor
+        return under and sellers
+    fn.__name__ = f"trend_broken_{ema_bars}"
+    return fn
+
+
 def demo():
     up = [(j * 300000, 100 + j, 101 + j, 99 + j, 100 + j, 10.0) for j in range(300)]
     down = [(j * 300000, 400 - j, 401 - j, 399 - j, 400 - j, 10.0) for j in range(300)]
@@ -139,6 +166,19 @@ def demo():
     assert surge(quiet, 399) < 0, "normal volume must not qualify"
     assert surge(dump, 399) < 0, "a surge while falling is a dump, never a buy"
     assert surge(loud, 100) is None, "not enough history must be skipped"
+    # trend_broken: a rising coin is never "broken"; a coin that rolled under
+    # its EMA with sellers dominating is; the same roll-over with buyers still
+    # crossing the spread is only a dip.
+    tb = trend_broken(ema_bars=48, flow_bars=12)
+    rise = [(j * 300000, 100 + j, 101 + j, 99 + j, 100 + j, 10.0, 6.0) for j in range(200)]
+    assert tb(rise, 199) is False
+    roll = rise[:150] + [(t, 250 - 2 * k, 250 - 2 * k, 240 - 2 * k, 245 - 2 * k, 10.0, 3.0)
+                         for k, (t, *_r) in enumerate(rise[150:])]
+    assert tb(roll, 199) is True, "under EMA with sellers dominant must exit"
+    dip = [r[:6] + (7.0,) for r in roll]                    # same price, buyers 70%
+    assert tb(dip, 199) is False, "buyers still crossing the spread is a dip, not an exit"
+    bare = [r[:6] for r in roll]                             # no taker column
+    assert tb(bare, 199) is True, "without flow data, price alone decides"
     print("ok")
 
 

@@ -34,12 +34,16 @@ WINDOW = 200                    # bars of history each score is computed on
 
 
 def load_bars(db, symbols=None, table="klines"):
-    q = f"SELECT symbol, ts, open, high, low, close, volume FROM {table} ORDER BY ts"
+    # taker_buy_base is the part of each bar's volume that hit the ask: the
+    # buyers who crossed the spread. Its share of volume is the closest thing
+    # to order flow the kline history carries.
+    q = (f"SELECT symbol, ts, open, high, low, close, volume, taker_buy_base "
+         f"FROM {table} ORDER BY ts")
     out = {}
-    for sym, ts, o, h, l, c, v in db.execute(q):
+    for sym, ts, o, h, l, c, v, tb in db.execute(q):
         if symbols and sym not in symbols:
             continue
-        out.setdefault(sym, []).append((ts, o, h, l, c, v))
+        out.setdefault(sym, []).append((ts, o, h, l, c, v, tb))
     return out
 
 
@@ -51,7 +55,7 @@ def chart_signal(rows, i, window=WINDOW):
 
 def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0,
         score_fn=chart_signal, window=WINDOW, min_quote_vol=0.0,
-        min_breadth=0.0, breadth_bars=288):
+        min_breadth=0.0, breadth_bars=288, exit_fn=None):
     """Equal-weight the top `top` scorers, rebalancing every `rebalance` bars.
 
     Cash and holdings are tracked separately, so equity is always a sum of two
@@ -114,11 +118,25 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
                     up += rows[i][4] > rows[i - breadth_bars][4]
             if tot and up / tot < min_breadth:
                 picks = []
-        target = equity / len(picks) if picks else 0.0
+        # A coin that merely slipped out of the top ranks is kept while its own
+        # trend holds and sold only when exit_fn says the trend broke, because
+        # rotating a rising coin out for a fee is the churn the fee analysis
+        # kept finding. Without exit_fn, out of the ranks means out.
+        def should_exit(sym):
+            if sym in picks:
+                return False
+            if exit_fn is None or sym not in index or now not in index[sym]:
+                return True
+            return bool(exit_fn(bars[sym], index[sym][now]))
+
+        # Kept coins still take their share of the book, or the freed cash
+        # would be split over fewer names and buy the new picks oversized.
+        kept = [s for s in units if s not in picks and s in last and not should_exit(s)]
+        target = equity / (len(picks) + len(kept)) if picks else 0.0
 
         # Exit at the last known price, whether or not the chart was readable:
         # a position you cannot score is a position you especially want to close.
-        for sym in [s for s in list(units) if s not in picks and s in last]:
+        for sym in [s for s in list(units) if s in last and should_exit(s)]:
             value = units.pop(sym) * last[sym]
             cash += value * (1 - fee)
             bought = entry.pop(sym, last[sym])
