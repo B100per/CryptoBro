@@ -278,8 +278,14 @@ function watch() {
     ctl.onSnapshot(d => {
       const s = d.data() || {};
       $("pill").classList.toggle("on", !!s.running);
-      $("pill-txt").textContent = (s.running ? "กำลังทำงาน" : "หยุดอยู่") + " · ก้าวล่าสุด " + when(s.last_step);
+      // A step that started over half an hour ago is a crashed instance, not work
+      // in progress: the function clears the flag itself unless it was killed.
+      const busy = s.stepping && Date.now() - (s.step_started || 0) < 1800e3;
+      $("pill-txt").textContent = (busy ? "กำลังก้าว… เริ่มเมื่อ " + when(s.step_started)
+        : (s.running ? "กำลังทำงาน" : "หยุดอยู่") + " · ก้าวล่าสุด " + when(s.last_step));
       $("start").disabled = !!s.running; $("stop").disabled = !s.running;
+      $("step").disabled = busy;
+      $("step").textContent = busy ? "กำลังก้าว… (ราว 7 นาที)" : "ก้าวหนึ่งครั้ง";
     }, fail),
     db.collection("books").onSnapshot(q => { books = {}; q.forEach(d => { books[d.id] = d.data(); }); render(); }, fail),
   ];
@@ -293,9 +299,17 @@ $("signout").onclick = () => firebase.auth().signOut();
 $("start").onclick = () => ctl.set({running: true}, {merge: true}).catch(fail);
 $("stop").onclick = () => ctl.set({running: false}, {merge: true}).catch(fail);
 $("step").onclick = async () => {
-  $("step").disabled = true; $("step").textContent = "กำลังก้าว… (หลายนาที)"; $("err").textContent = "";
-  try { await firebase.functions().httpsCallable("step_now")(); } catch (e) { fail(e); }
-  $("step").disabled = false; $("step").textContent = "ก้าวหนึ่งครั้ง";
+  $("step").disabled = true; $("err").textContent = "";
+  try {
+    // The SDK gives up after 70 s by default; a step needs minutes. Even with the
+    // longer deadline the answer may never arrive (a closed laptop, a dropped
+    // connection) — the work continues on the server either way, and the books
+    // and the status pill above come from Firestore, not from this reply.
+    await firebase.functions().httpsCallable("step_now", {timeout: 1800e3})();
+  } catch (e) {
+    if (/deadline/i.test(e.code || "")) $("err").textContent = "ยังก้าวอยู่เบื้องหลัง หน้าจะอัปเดตเองเมื่อเสร็จ";
+    else fail(e);
+  }
 };
 firebase.auth().onAuthStateChanged(u => {
   unsub.forEach(f => f()); unsub = [];

@@ -18,11 +18,26 @@ import step
 
 initialize_app()
 OWNER = os.environ.get("OWNER_EMAIL", "")
-RUN = dict(timeout_sec=1800, memory=options.MemoryOption.MB_512)
+# 384 symbols x 2017 bars measured at 212 MB of data, plus the interpreter and
+# the admin SDK; 512 MB was too close to the edge. ~7 min per step, so 30 min.
+RUN = dict(timeout_sec=1800, memory=options.MemoryOption.GB_1)
 
 
 def run(reason):
     db = firestore.client()
+    state = db.document("control/state")
+    # A step takes ~7 minutes, far longer than any browser will hold a call open,
+    # so progress is reported here and the page watches this document instead.
+    state.set({"stepping": True, "step_started": int(time.time() * 1000),
+               "step_reason": reason}, merge=True)
+    try:
+        _run(db, reason)
+    finally:
+        # A killed instance never reaches this; the page ages the flag out.
+        state.set({"stepping": False}, merge=True)
+
+
+def _run(db, reason):
     bars, prices = step.market()
     now = int(time.time() * 1000)          # one stamp for both books, so curves line up
     for st in step.STRATEGIES:
