@@ -1,11 +1,11 @@
 <!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>CryptoBro</title>
-<link rel=stylesheet href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel=stylesheet href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style>
 :root{--plane:#0d0d0d;--surf:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--mut:#898781;--grid:#2c2c2a;--axis:#383835;
  --ring:rgba(255,255,255,0.10);--s1:#3987e5;--s2:#d95926;--up:#0ca30c;--down:#d03b3b;--accent:#e8b04b}
 *{box-sizing:border-box}
-body{margin:0;background:var(--plane);color:var(--ink);font:14px/1.5 "IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+body{margin:0;background:var(--plane);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
  background-image:radial-gradient(1200px 500px at 20% -10%,rgba(232,176,75,0.07),transparent 60%)}
 a{color:var(--accent)}
 .wrap{max-width:1440px;margin:0 auto;padding:36px 48px 56px;display:flex;flex-direction:column;gap:24px}
@@ -65,8 +65,8 @@ footer{font-size:12px;color:var(--mut)}
 <div class="wrap login" id=login>
   <div class=card>
     <header><span class=logo><i><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke="#0d0d0d" stroke-width=2.5 stroke-linecap=round stroke-linejoin=round><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></i>CryptoBro</span><span class=badge>paper only</span></header>
-    <p class=muted style="margin:0">บัญชี Google ของเจ้าของเท่านั้นที่เห็นสมุดบัญชีและกดปุ่มได้</p>
-    <button class=primary id=signin style="align-self:flex-start;padding:11px 18px;font-size:14px">เข้าสู่ระบบด้วย Google</button>
+    <p class=muted style="margin:0">Only the owner's Google account can see the books and press the buttons.</p>
+    <button class=primary id=signin style="align-self:flex-start;padding:11px 18px;font-size:14px">Sign in with Google</button>
     <p class=err id=login-err></p>
   </div>
 </div>
@@ -74,34 +74,34 @@ footer{font-size:12px;color:var(--mut)}
 <div class=wrap id=main hidden>
   <header>
     <span class=logo><i><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke="#0d0d0d" stroke-width=2.5 stroke-linecap=round stroke-linejoin=round><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></i>CryptoBro</span>
-    <span class=badge>Paper only · ไม่ใช่เงินจริง</span>
-    <span class=pill id=pill><i></i><span id=pill-txt>หยุดอยู่</span></span>
+    <span class=badge>Paper only · no real money</span>
+    <span class=pill id=pill><i></i><span id=pill-txt>Stopped</span></span>
     <span class=chips>
-      <button id=start>เริ่ม</button><button id=stop>หยุด</button><button class=on id=step>ก้าวหนึ่งครั้ง</button><button id=signout>ออกจากระบบ</button>
+      <button id=start>Start</button><button id=stop>Stop</button><button class=on id=step>Rebalance now</button><button id=signout>Sign out</button>
     </span>
   </header>
   <p class=err id=err></p>
 
   <div class=hero>
     <div style="display:flex;flex-direction:column;justify-content:center;gap:10px">
-      <div class=label>มูลค่าพอร์ตรวมสองกลยุทธ์</div>
+      <div class=label>Total equity, both strategies</div>
       <div><span class=big id=total>—</span><small style="font-size:18px">USDT</small></div>
       <div class=delta id=total-delta></div>
     </div>
     <div class=tiles>
-      <div class="card tile"><div class=label>กำไรวันนี้</div><div class=v id=t-day>—</div><div class=delta id=t-day-d></div></div>
-      <div class="card tile"><div class=label>กำไรเดือนนี้</div><div class=v id=t-mon>—</div><div class=delta id=t-mon-d></div></div>
-      <div class="card tile"><div class=label>กำไรปีนี้</div><div class=v id=t-yr>—</div><div class=delta id=t-yr-d></div></div>
+      <div class="card tile"><div class=label>Today</div><div class=v id=t-day>—</div><div class=delta id=t-day-d></div></div>
+      <div class="card tile"><div class=label>This month</div><div class=v id=t-mon>—</div><div class=delta id=t-mon-d></div></div>
+      <div class="card tile"><div class=label>This year</div><div class=v id=t-yr>—</div><div class=delta id=t-yr-d></div></div>
     </div>
   </div>
 
   <div class=g3>
     <div class="card span2">
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div><h2>มูลค่าพอร์ตแยกตามกลยุทธ์</h2><div class=sub>USDT · บันทึกทุก 12 ชม.</div></div>
+        <div><h2>Equity by strategy</h2><div class=sub>USDT · recorded every 12 h</div></div>
         <div class=legend id=legend></div>
         <div class=chips style="margin-left:auto" id=ranges>
-          <span class=chip data-r=1>1 วัน</span><span class="chip on" data-r=30>1 เดือน</span><span class=chip data-r=365>1 ปี</span><span class=chip data-r=0>ทั้งหมด</span>
+          <span class=chip data-r=1>1D</span><span class="chip on" data-r=30>1M</span><span class=chip data-r=365>1Y</span><span class=chip data-r=0>All</span>
         </div>
       </div>
       <div id=line></div>
@@ -110,17 +110,17 @@ footer{font-size:12px;color:var(--mut)}
   </div>
 
   <div class=g3>
-    <div class="card span2"><div><h2>กำไรขาดทุนรายวัน</h2><div class=sub>USDT · รวมสองกลยุทธ์ · 30 วันล่าสุด</div></div><div id=daily></div></div>
-    <div class=card><div><h2>กำไรขาดทุนรายเดือน</h2><div class=sub>USDT · 12 เดือนล่าสุด</div></div><div id=monthly></div></div>
+    <div class="card span2"><div><h2>Daily P&amp;L</h2><div class=sub>USDT · both strategies · last 30 days</div></div><div id=daily></div></div>
+    <div class=card><div><h2>Monthly P&amp;L</h2><div class=sub>USDT · last 12 months</div></div><div id=monthly></div></div>
   </div>
 
   <div class=card>
-    <div><h2>เหรียญที่ถืออยู่</h2><div class=sub id=hold-sub></div></div>
-    <div class=tbl><table><thead><tr><th>เหรียญ</th><th>กลยุทธ์</th><th class=n>จำนวน</th><th class=n>ราคาเข้า</th><th class=n>ราคาตอนนี้</th><th class=n>มูลค่า (USDT)</th><th class=n>กำไร/ขาดทุน</th><th>สัดส่วน</th></tr></thead><tbody id=rows></tbody></table></div>
+    <div><h2>Holdings</h2><div class=sub id=hold-sub></div></div>
+    <div class=tbl><table><thead><tr><th>Coin</th><th>Strategy</th><th class=n>Units</th><th class=n>Entry</th><th class=n>Price</th><th class=n>Value (USDT)</th><th class=n>P&amp;L</th><th>Weight</th></tr></thead><tbody id=rows></tbody></table></div>
   </div>
 
-  <footer>สองกลยุทธ์เดินบนนาฬิกา 12 ชั่วโมงเดียวกัน แต่ละกลยุทธ์มีสมุดบัญชีของตัวเอง เพื่อให้ตลาดเป็นผู้บอกว่าอันไหนตรงกับที่ backtest บรรยายไว้ ·
-  ก้าวหนึ่งคือ Cloud Function ที่อ่านกระดาน Binance TH แล้วเขียนแถวลง Firestore ไม่มีคีย์กระดานซื้อขายในโปรเจกต์นี้ จึงส่งคำสั่งจริงไม่ได้</footer>
+  <footer>Two rules run on the same 12-hour clock, each in its own paper book, so the market can say which one the backtest described.
+  A rebalance is a Cloud Function that reads the Binance TH board and writes rows to Firestore; no exchange key exists on this project, so it cannot place an order even if asked.</footer>
 </div>
 
 <script src="/__/firebase/10.14.1/firebase-app-compat.js"></script>
@@ -133,12 +133,12 @@ const $ = id => document.getElementById(id);
 const db = firebase.firestore(), ctl = db.doc("control/state");
 const START = 1000, ORDER = ["chart", "volmom"], COLOR = {chart: "#3987e5", volmom: "#d95926"};
 const C = {surf: "#1a1a19", ink: "#fff", mut: "#898781", grid: "#2c2c2a", axis: "#383835", up: "#0ca30c", down: "#d03b3b"};
-const MON = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const num = (v, d = 2) => v.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d});
 const sgn = (v, d = 2) => (v >= 0 ? "+" : "") + num(v, d);
 const thDate = ms => { const d = new Date(ms); return `${d.getDate()} ${MON[d.getMonth()]}`; };
-const when = ms => ms ? new Date(ms).toLocaleString("th-TH", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "ยังไม่เคย";
+const when = ms => ms ? new Date(ms).toLocaleString("en-GB", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "never";
 const fail = e => { $("err").textContent = e.message || String(e); };
 const arrow = up => `<svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke="${up ? C.up : C.down}" stroke-width=2.5 stroke-linecap=round stroke-linejoin=round>${up ? '<path d="M12 19V5M5 12l7-7 7 7"/>' : '<path d="M12 5v14M5 12l7 7 7-7"/>'}</svg>`;
 let books = {}, range = 30, unsub = [];
@@ -156,7 +156,7 @@ function ticks(lo, hi, n) {
 }
 function lineChart(series, w = 880, h = 300, [t, r, b, l] = [16, 90, 36, 56]) {
   const all = series.flatMap(s => s.pts.map(p => p.v));
-  if (all.length < 2) return '<p class=muted>รอข้อมูลก้าวที่สอง…</p>';
+  if (all.length < 2) return '<p class=muted>Waiting for the second rebalance…</p>';
   const tk = ticks(Math.min(...all), Math.max(...all), 4), lo = tk[0], hi = tk[tk.length - 1];
   const t0 = Math.min(...series.map(s => s.pts[0].t)), t1 = Math.max(...series.map(s => s.pts[s.pts.length - 1].t));
   const X = ts => l + (t1 > t0 ? (ts - t0) / (t1 - t0) : 0) * (w - l - r), Y = v => t + (hi - v) / (hi - lo) * (h - t - b);
@@ -175,7 +175,7 @@ function lineChart(series, w = 880, h = 300, [t, r, b, l] = [16, 90, 36, 56]) {
   return o + "</svg>";
 }
 function barChart(vals, labels, w = 880, h = 220, bar = 20, [t, r, b, l] = [14, 16, 30, 56], every = 1) {
-  if (!vals.length) return '<p class=muted>ยังไม่มีข้อมูล</p>';
+  if (!vals.length) return '<p class=muted>No data yet</p>';
   let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
   const tk = ticks(lo, hi, 3); lo = Math.min(tk[0], lo); hi = Math.max(tk[tk.length - 1], hi);
   const slot = (w - l - r) / vals.length, Y = v => t + (hi - v) / (hi - lo) * (h - t - b), y0 = Y(0);
@@ -239,11 +239,11 @@ function render() {
   $("total").textContent = num(last);
   const ret = (last - base) / base * 100;
   $("total-delta").innerHTML = total.length
-    ? `<span class=dot style="background:${ret >= 0 ? C.up : C.down}"></span><b>${sgn(ret)}%</b><span class=muted>จากเงินตั้งต้น ${num(base, 0)} USDT · ${thDate(total[0].ts)} – ${thDate(last && total[total.length - 1].ts)}</span>`
-    : `<span class=muted>ยังไม่มีก้าวแรก กดเริ่ม หรือก้าวหนึ่งครั้ง</span>`;
-  tile("t-day", pnlSince(total, dayKey, base), "เทียบเมื่อวาน");
-  tile("t-mon", pnlSince(total, monKey, base), "เทียบเดือนก่อน");
-  tile("t-yr", pnlSince(total, yrKey, base), "เทียบปีก่อน");
+    ? `<span class=dot style="background:${ret >= 0 ? C.up : C.down}"></span><b>${sgn(ret)}%</b><span class=muted>from ${num(base, 0)} USDT · ${thDate(total[0].ts)} – ${thDate(last && total[total.length - 1].ts)}</span>`
+    : `<span class=muted>No rebalance yet. Press Start, or Rebalance now.</span>`;
+  tile("t-day", pnlSince(total, dayKey, base), "vs yesterday");
+  tile("t-mon", pnlSince(total, monKey, base), "vs last month");
+  tile("t-yr", pnlSince(total, yrKey, base), "vs last year");
 
   const since = range ? Date.now() - range * 86400e3 : 0;
   const series = names.map(n => ({name: books[n].title, color: COLOR[n], pts: (books[n].curve || []).filter(p => p.ts >= since).map(p => ({t: p.ts, v: p.equity}))})).filter(s => s.pts.length);
@@ -255,16 +255,16 @@ function render() {
   $("monthly").innerHTML = barChart(m.vals, m.labels, 400, 220, 18, [14, 8, 30, 50]);
 
   $("books").innerHTML = names.map(n => { const b = books[n], r = b.return_pct || 0; return `<div class="card book">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class=dot style="background:${COLOR[n]};border-radius:3px;width:12px;height:12px"></span><b>${esc(b.title)}</b><span class=sub>ก้าวล่าสุด ${when(b.updated)}${b.reason === "manual" ? " (กดเอง)" : ""}</span></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class=dot style="background:${COLOR[n]};border-radius:3px;width:12px;height:12px"></span><b>${esc(b.title)}</b><span class=sub>last rebalance ${when(b.updated)}${b.reason === "manual" ? " (manual)" : ""}</span></div>
     <div style="display:flex;align-items:baseline;gap:12px"><span class=v>${num(b.equity ?? START)}</span><b>${sgn(r)}%</b></div>
-    <div class=kv><div><div>ขาดทุนสูงสุด</div><div>-${num(b.max_drawdown_pct || 0)}%</div></div><div><div>จำนวนก้าว</div><div>${b.steps || 0}</div></div><div><div>ถือครอง</div><div>${Object.keys(b.held || {}).length} เหรียญ</div></div></div>
-  </div>`; }).join("") || '<div class=card><p class=muted style="margin:0">ยังไม่มีสมุดบัญชี</p></div>';
+    <div class=kv><div><div>Max drawdown</div><div>-${num(b.max_drawdown_pct || 0)}%</div></div><div><div>Rebalances</div><div>${b.steps || 0}</div></div><div><div>Holding</div><div>${Object.keys(b.held || {}).length} coins</div></div></div>
+  </div>`; }).join("") || '<div class=card><p class=muted style="margin:0">No book yet</p></div>';
 
   const rows = names.flatMap(n => Object.entries(books[n].held || {}).map(([sym, [units, entry]]) => {
     const px = (books[n].marks || {})[sym] ?? entry; return {sym, n, units, entry, px, val: units * px, pnl: (px / entry - 1) * 100};
   }));
   const tot = rows.reduce((s, r) => s + r.val, 0);
-  $("hold-sub").textContent = rows.length ? `${rows.length} ตำแหน่ง · มูลค่ารวม ${num(tot)} USDT · ราคาจาก Binance TH ณ ก้าวล่าสุด` : "ทั้งสองสมุดถือเงินสด";
+  $("hold-sub").textContent = rows.length ? `${rows.length} positions · ${num(tot)} USDT · Binance TH prices at the last rebalance` : "Both books are in cash";
   $("rows").innerHTML = rows.sort((a, b) => b.val - a.val).map(r => { const c = r.sym.replace(/USDT$/, ""); return `<tr>
     <td class=k><span class=coin>${esc(c.slice(0, 2))}</span>${esc(c)}<span class=muted style="font-weight:400">/USDT</span></td>
     <td><span class=dot style="background:${COLOR[r.n]};border-radius:2px;width:10px;height:10px;margin-right:8px"></span>${esc(books[r.n].title)}</td>
@@ -272,7 +272,7 @@ function render() {
     <td class=n style="color:var(--ink)">${num(r.val)}</td>
     <td class="n k"><span class=dot style="background:${r.pnl >= 0 ? C.up : C.down};margin-right:6px"></span>${sgn(r.pnl)}%</td>
     <td><span class=meter><i style="width:${(r.val / tot * 100).toFixed(0)}%"></i></span>${num(r.val / tot * 100, 1)}%</td></tr>`; }).join("")
-    || '<tr><td colspan=8 class=muted>ไม่มีเหรียญที่ถืออยู่</td></tr>';
+    || '<tr><td colspan=8 class=muted>Nothing held</td></tr>';
 }
 
 // ── wiring ───────────────────────────────────────────────────────────
@@ -284,11 +284,11 @@ function watch() {
       // A step that started over half an hour ago is a crashed instance, not work
       // in progress: the function clears the flag itself unless it was killed.
       const busy = s.stepping && Date.now() - (s.step_started || 0) < 1800e3;
-      $("pill-txt").textContent = (busy ? "กำลังก้าว… เริ่มเมื่อ " + when(s.step_started)
-        : (s.running ? "กำลังทำงาน" : "หยุดอยู่") + " · ก้าวล่าสุด " + when(s.last_step));
+      $("pill-txt").textContent = (busy ? "Rebalancing… started " + when(s.step_started)
+        : (s.running ? "Running" : "Stopped") + " · last rebalance " + when(s.last_step));
       $("start").disabled = !!s.running; $("stop").disabled = !s.running;
       $("step").disabled = busy;
-      $("step").textContent = busy ? "กำลังก้าว… (ราว 7 นาที)" : "ก้าวหนึ่งครั้ง";
+      $("step").textContent = busy ? "Rebalancing… (about 7 min)" : "Rebalance now";
     }, fail),
     db.collection("books").onSnapshot(q => { books = {}; q.forEach(d => { books[d.id] = d.data(); }); render(); }, fail),
   ];
@@ -310,7 +310,7 @@ $("step").onclick = async () => {
     // and the status pill above come from Firestore, not from this reply.
     await firebase.functions().httpsCallable("step_now", {timeout: 1800e3})();
   } catch (e) {
-    if (/deadline/i.test(e.code || "")) $("err").textContent = "ยังก้าวอยู่เบื้องหลัง หน้าจะอัปเดตเองเมื่อเสร็จ";
+    if (/deadline/i.test(e.code || "")) $("err").textContent = "Still rebalancing in the background; the page updates itself when done.";
     else fail(e);
   }
 };
