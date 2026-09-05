@@ -43,9 +43,12 @@ def load_env(path=ENV_FILE):
         os.environ.setdefault(k.strip(), v.strip().strip("'\""))
 
 HINTS = {
-    -2015: "key is for the wrong environment (testnet keys only work on testnet, "
-           "and vice versa), or Futures is not enabled on it, or your IP is not "
-           "whitelisted. Run `python3 binance_client.py --diagnose` to find out which",
+    -2015: "key is not accepted here. Common causes, in the order worth checking: "
+           "the key is from a different Binance entity (a binance.th / Binance TH key "
+           "does not work on binance.com, and Binance TH has no futures at all); the "
+           "key is for the other environment (testnet keys only work on testnet); "
+           "Futures is not enabled on the key; your IP is not whitelisted. "
+           "Run `python3 binance_client.py --diagnose` to narrow it down",
     -2014: "malformed API key: check for a stray space or newline in BINANCE_KEY",
     -1022: "signature rejected: BINANCE_SECRET does not match BINANCE_KEY",
     -1021: "your system clock is off; sync it and retry",
@@ -92,11 +95,11 @@ class Binance:
         qs = urllib.parse.urlencode(params)
         return qs + "&signature=" + hmac.new(self.secret, qs.encode(), hashlib.sha256).hexdigest()
 
-    def call(self, path, method="GET", **params):
+    def call(self, path, method="GET", base=None, **params):
         params.setdefault("timestamp", int(time.time() * 1000))
         params.setdefault("recvWindow", 5000)
         qs = self.sign(params)
-        url = f"{self.base}{path}" + ("?" + qs if method == "GET" else "")
+        url = f"{base or self.base}{path}" + ("?" + qs if method == "GET" else "")
         req = urllib.request.Request(
             url, data=None if method == "GET" else qs.encode(),
             headers={"X-MBX-APIKEY": self.key}, method=method)
@@ -184,6 +187,21 @@ def diagnose():
     print(f"key length {len(key)}, secret length {len(secret)} (Binance issues 64 chars each)")
     if key != key.strip() or secret != secret.strip():
         print("  !! whitespace around the key or secret; strip it")
+    # Spot reading is the weakest permission there is. If even that is refused,
+    # the key is not a binance.com key at all rather than missing a permission.
+    try:
+        Binance(key, secret, live=True).call("/api/v3/account",
+                                             base="https://api.binance.com")
+        print("SPOT   : OK  <- key is valid on binance.com")
+    except BinanceError as e:
+        if e.code == -2015:
+            print("SPOT   : refused -> this key is not recognised by binance.com. "
+                  "Check it is not a binance.th (Binance TH) key, which is a separate "
+                  "exchange with no futures.")
+        else:
+            print(f"SPOT   : code={e.code}")
+    except Exception as e:
+        print(f"SPOT   : {e}")
     for live in (False, True):
         name = "LIVE   " if live else "TESTNET"
         try:

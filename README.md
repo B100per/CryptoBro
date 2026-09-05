@@ -59,6 +59,11 @@ terms stay near zero until the collector has a few hours of history.
 API key: enable **Futures** only, never withdrawal, restrict to your IP.
 Spot permission is not enough; every endpoint here is `fapi`.
 
+The key must come from **binance.com** or its futures testnet. Binance TH
+(`binance.th`) is a separate exchange whose keys are rejected here, and it has
+no futures market at all, so the funding / open interest / long-short signals
+this bot is built on do not exist on that account.
+
 Credentials live in `.env`, which is gitignored:
 
 ```bash
