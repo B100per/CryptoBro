@@ -38,3 +38,25 @@ assert abs(m["profit_factor"] - 30 / 5) < 1e-9
 # too little data must report rather than divide by zero
 assert metrics([], [], 100) == {"bars": 0}
 print("ok")
+
+from backtest import is_stable_pair
+
+assert is_stable_pair("USDPUSDT") and is_stable_pair("USDCUSDT")
+assert not is_stable_pair("BTCUSDT") and not is_stable_pair("PAXGUSDT")
+
+# The bug that erased a portfolio: a coin goes flat, its ATR hits zero,
+# chart_read returns None, and the holding must NOT be valued at zero.
+n = WINDOW + 120
+rising = series([100 * (1.002 ** i) for i in range(n)])
+# same asset, then pinned to a constant for the rest of the run
+pinned = rising[:WINDOW + 40] + [(t, 200.0, 200.0, 200.0, 200.0, 100.0)
+                                 for t, *_ in rising[WINDOW + 40:]]
+m, curve, trades, final = run({"UP": rising, "FLAT": pinned}, top=2, rebalance=12, fee=0.0)
+assert final > 0, final
+assert all(e > 0 for _, e in curve), "a holding that stops scoring must keep its value"
+assert m["max_drawdown_pct"] < 100.0
+
+# a portfolio holding only the pinned asset must not evaporate
+m, curve, trades, final = run({"FLAT": pinned}, top=1, rebalance=12, fee=0.0)
+assert final > 0 and all(e > 0 for _, e in curve)
+print("ok")

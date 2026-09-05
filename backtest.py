@@ -19,6 +19,16 @@ import sys
 
 from features import chart_read, score
 
+# Pegged against the quote currency, so they cannot trend and must never be
+# bought. One of them, USDP, is what exposed the valuation bug below: a flat
+# price gives zero ATR, chart_read returns None, and the holding vanished.
+STABLES = {"USDC", "USDP", "TUSD", "FDUSD", "USD1", "DAI", "USDE", "RLUSD",
+           "XUSD", "FRAX", "USDT", "BUSD", "PYUSD"}
+
+
+def is_stable_pair(symbol, quote="USDT"):
+    return symbol.endswith(quote) and symbol[: -len(quote)] in STABLES
+
 BARS_PER_YEAR = 365 * 24 * 12   # 5m bars
 WINDOW = 200                    # bars of history each score is computed on
 
@@ -45,6 +55,7 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
     cash = start_equity
     units = {}       # symbol -> units held
     entry = {}       # symbol -> price paid, for per-trade pnl
+    last = {}        # symbol -> last price seen, so a holding is never valued at zero
     curve, trades = [], []
 
     for step in range(WINDOW, len(stamps), rebalance):
@@ -54,6 +65,9 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
             i = index[sym].get(now)
             if i is None or i < WINDOW:
                 continue
+            last[sym] = rows[i][4]
+            if is_stable_pair(sym):
+                continue
             chart = chart_read([(r[1], r[2], r[3], r[4], r[5])
                                 for r in rows[i - WINDOW:i + 1]])
             if not chart:
@@ -61,8 +75,10 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
             prices[sym] = rows[i][4]
             scores[sym] = score(chart, None)
 
-        # Anything held but not priced this step keeps its last known value.
-        held_value = sum(u * prices[s] for s, u in units.items() if s in prices)
+        # A holding whose chart could not be read this step is still worth
+        # something. Valuing it at zero is how a stablecoin position erased the
+        # entire portfolio in one line.
+        held_value = sum(u * last.get(s, 0.0) for s, u in units.items())
         if not prices:
             continue
         equity = cash + held_value
@@ -74,10 +90,12 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
                  if sc >= min_score][:top]
         target = equity / len(picks) if picks else 0.0
 
-        for sym in [s for s in units if s not in picks and s in prices]:
-            value = units.pop(sym) * prices[sym]
+        # Exit at the last known price, whether or not the chart was readable:
+        # a position you cannot score is a position you especially want to close.
+        for sym in [s for s in list(units) if s not in picks and s in last]:
+            value = units.pop(sym) * last[sym]
             cash += value * (1 - fee)
-            bought = entry.pop(sym, prices[sym])
+            bought = entry.pop(sym, last[sym])
             trades.append({"symbol": sym, "pnl": value * (1 - fee) - bought})
 
         for sym in picks:
