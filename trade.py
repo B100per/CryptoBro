@@ -24,13 +24,22 @@ DB = "data.db"
 
 
 def candidates(quote, filters, db_path=DB):
-    """Ranked (pair, base, score) for coins we have a signal on and can buy here."""
+    """Ranked (pair, base, score) for everything tradable here that scores well.
+
+    Prefers th_klines, which covers the whole Binance TH board, and falls back
+    to the futures klines only if the TH history has not been collected yet.
+    """
     db = sqlite3.connect(db_path)
+    table = "th_klines" if db.execute(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='th_klines'"
+    ).fetchone()[0] and db.execute("SELECT count(*) FROM th_klines").fetchone()[0] \
+        else "klines"
+
     out = []
-    for sym, d in load(db).items():
-        if not sym.endswith("USDT"):
-            continue
-        base = sym[: -len("USDT")]
+    for sym, d in load(db, table=table).items():
+        base = sym[:-4] if sym.endswith(("USDT", "USDC")) else sym
+        if sym.endswith(quote):
+            base = sym[: -len(quote)]
         pair = base + quote
         if pair in filters and d["score"] >= MIN_SCORE:
             out.append((pair, base, d["score"]))

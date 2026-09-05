@@ -136,6 +136,33 @@ Every planned and executed order is appended to `logs/trades.csv` and
 `logs/trades.json`. Alerts are best-effort: a dead webhook logs and moves on
 rather than taking the trading loop down.
 
+## Regime
+
+`regime.py` decides whether a market is worth acting in at all. Trend
+following pays in a trend and bleeds in chop, and the 90-day backtest made
+5,533 trades to lose 91%, which is what that bleeding looks like.
+
+Efficiency ratio (Kaufman) is distance travelled over ground covered: a clean
+one-way move approaches 1, a market that thrashes and ends where it began
+approaches 0. Below `TREND_MIN`, or with ATR in the top of its own range, the
+score is forced below anything the planner will buy.
+
+```bash
+python3 features.py --th    # scores with the regime column
+```
+
+## Paper trading
+
+```bash
+python3 paper.py --step      # one rebalance, run on a schedule
+python3 paper.py --status    # equity, drawdown, open positions
+python3 paper.py --reset
+```
+
+Same rule, real prices, imaginary money, and prices the rule has never seen.
+State is in `paper.db`, kept apart from `data.db` so a long collector backfill
+can never block it.
+
 ## Circuit breaker
 
 `risk.py` halts buying for the rest of the UTC day once account equity drops

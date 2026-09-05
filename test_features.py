@@ -15,6 +15,14 @@ assert structure([5] * 24, [4] * 24, seg=12) == 0.0
 rising = [(i, i + 1, i - 1, i + 0.5, 100.0) for i in range(100, 200)]
 c = chart_read(rising)
 assert c and c["trend"] > 0 and c["structure"] == 1.0
+assert c["regime"] == "trend" and c["tradable"]
+
+# a chart in chop must score below anything the planner would ever buy
+chop = [(100, 102, 98, 100 + (2 if i % 2 else -2), 100.0) for i in range(100)]
+cc = chart_read(chop)
+assert cc and not cc["tradable"]
+assert score(cc, None) == -99.0
+assert score(cc, None, gate=False) > -99.0      # the gate must be the only reason
 assert chart_read(rising[:10]) is None        # too few bars to read anything
 
 falling = rising[::-1]
