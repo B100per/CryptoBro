@@ -50,7 +50,8 @@ def chart_signal(rows, i, window=WINDOW):
 
 
 def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0,
-        score_fn=chart_signal, window=WINDOW, min_quote_vol=0.0):
+        score_fn=chart_signal, window=WINDOW, min_quote_vol=0.0,
+        min_breadth=0.0, breadth_bars=288):
     """Equal-weight the top `top` scorers, rebalancing every `rebalance` bars.
 
     Cash and holdings are tracked separately, so equity is always a sum of two
@@ -100,6 +101,19 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
 
         picks = [s for s, sc in sorted(scores.items(), key=lambda kv: -kv[1])
                  if sc >= min_score][:top]
+
+        # Long-only has one answer to a falling market: do not be in it. When
+        # fewer than min_breadth of the coins that could be scored are above
+        # where they were breadth_bars ago, sit in USDT and buy nothing.
+        if min_breadth and picks:
+            up = tot = 0
+            for sym in prices:
+                rows, i = bars[sym], index[sym][now]
+                if i >= breadth_bars and rows[i - breadth_bars][4] > 0:
+                    tot += 1
+                    up += rows[i][4] > rows[i - breadth_bars][4]
+            if tot and up / tot < min_breadth:
+                picks = []
         target = equity / len(picks) if picks else 0.0
 
         # Exit at the last known price, whether or not the chart was readable:

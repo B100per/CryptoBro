@@ -1,0 +1,8 @@
+symbols=384 bars=9,934,583 min_quote_vol=50,000
+
+excess over buy-and-hold, across 5 start times
+            signal  rebal   worst%   median%    best%  trades
+   chart (current)    144    -34.6     -20.7     18.0      28
+   chart (current)    432    -42.1     -13.9     -7.7       9
+   volume surge 1h    144    -98.5     -85.0      9.8     100
+   volume surge 1h    432    -82.6     -42.8     31.5      36
