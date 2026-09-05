@@ -4,7 +4,7 @@
     CONTROL_TOKEN=change-me python3 control.py --port 8787 --interval 43200
 
 One process does both jobs: it serves the page, and while "running" is on it
-calls paper.step() every `interval` seconds. Start and Stop flip a flag that
+steps every book in STRATEGIES every `interval` seconds. Start and Stop flip a flag that
 is written to control_state.json, so a restart remembers where it was.
 
 Paper only. Nothing in this file, or in paper.py beneath it, can send an
@@ -34,6 +34,15 @@ STATE_FILE = os.environ.get("CONTROL_STATE", "control_state.json")
 TOKEN = os.environ.get("CONTROL_TOKEN", "")
 DEFAULT_INTERVAL = 43200          # 12h, the cadence the forward test runs at
 LOG = deque(maxlen=60)
+
+# The rules the lab kept: worst case across start times positive, on coins a
+# real order could fill. Each keeps its own book so they can be compared.
+STRATEGIES = [
+    {"name": "chart + breadth 60%", "db": "paper_chart.db",
+     "rule": "chart", "breadth_floor": 0.6, "min_vol": 2000, "min_score": 0.5},
+    {"name": "vol-scaled momentum 7d", "db": "paper_volmom.db",
+     "rule": "volmom", "breadth_floor": 0.0, "min_vol": 2000, "min_score": 0.0},
+]
 SESSIONS = set()
 STEP_LOCK = threading.Lock()
 
@@ -76,15 +85,20 @@ def set_running(on):
 
 def run_step(reason):
     """One paper step, serialised so a click and the clock cannot overlap."""
+    out = []
     with STEP_LOCK:
-        try:
-            r = paper.step(paper.db())
-            log(f"step ({reason}): equity {r['equity']:.2f}, "
-                f"holding {', '.join(r['picks']) or 'nothing'}")
-            return r
-        except Exception as e:           # a bad API reply must not kill the server
-            log(f"step failed ({reason}): {e}")
-            return None
+        for st in STRATEGIES:
+            try:
+                r = paper.step(paper.db(st["db"]), rule=st["rule"],
+                               breadth_floor=st["breadth_floor"], min_vol=st["min_vol"],
+                               min_score=st["min_score"])
+                log(f"{st['name']} ({reason}): equity {r['equity']:.2f}, "
+                    f"holding {', '.join(r['picks']) or 'nothing'}")
+                out.append(r)
+            except Exception as e:       # a bad API reply must not kill the server
+                log(f"{st['name']} failed ({reason}): {e}")
+                out.append(None)
+    return out
 
 
 def tick(now=None):
@@ -129,7 +143,7 @@ header h1{font-size:17px;margin:0;letter-spacing:.02em}
 .pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
 .pill i{width:9px;height:9px;border-radius:50%;background:var(--mut);display:inline-block}
 .pill.on i{background:var(--up);box-shadow:0 0 0 4px color-mix(in srgb,var(--up) 22%,transparent)}
-.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media(max-width:700px){.grid{grid-template-columns:1fr}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
 .card h2{margin:0 0 12px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
@@ -174,19 +188,38 @@ def page_login(error=""):
 <button class=primary type=submit>Sign in</button></form></div></div>"""
 
 
-def page_main(sid):
-    st = load_state()
-    s = paper.status(paper.db())
-    rows = paper.db().execute("SELECT ts, equity FROM equity ORDER BY ts").fetchall()
+def book(st):
+    c = paper.db(st["db"])
+    s = paper.status(c)
+    rows = c.execute("SELECT ts, equity FROM equity ORDER BY ts").fetchall()
+    return s, rows
+
+
+def card(st):
+    s, rows = book(st)
     equity = s.get("equity", paper.START_EQUITY)
     ret = s.get("return_pct", 0.0)
     cls = "up" if ret >= 0 else "down"
+    pos = "".join(f"<tr><td>{html.escape(sym)}</td><td class=n>{u:,.4f}</td><td class=n>{e:,.6g}</td></tr>"
+                  for sym, u, e in s.get("positions", []))
+    gate = f" · cash when breadth &lt; {st['breadth_floor']:.0%}" if st["breadth_floor"] else ""
+    return f"""<div class=card>
+  <h2>{html.escape(st['name'])}</h2>
+  <div><span class=equity>{equity:,.2f}<small>USDT</small></span><span class="ret {cls}">{ret:+.2f}%</span></div>
+  <p class=meta>{s.get('steps', 0)} steps · max drawdown {s.get('max_drawdown_pct', 0):.2f}%
+  · top {paper.TOP} · liquidity ≥ {st['min_vol']:,} USDT/5m{gate}</p>
+  {spark(rows, h=170)}
+  <table><tr><th>coin</th><th class=n>units</th><th class=n>entry</th></tr>
+  {pos or '<tr><td colspan=3 class=muted>nothing held</td></tr>'}</table>
+</div>"""
+
+
+def page_main(sid):
+    st = load_state()
     now = time.time()
     nxt = st["next_step"] - now
     when = ("due now" if nxt <= 0 else f"in {nxt / 3600:.1f} h") if st["running"] else "—"
     last = time.strftime("%d %b %H:%M", time.localtime(st["last_step"])) if st["last_step"] else "never"
-    pos = "".join(f"<tr><td>{html.escape(sym)}</td><td class=n>{u:,.6f}</td><td class=n>{e:,.8g}</td></tr>"
-                  for sym, u, e in s.get("positions", []))
     logs = html.escape("\n".join(reversed(LOG))) or "no activity yet"
     csrf = f'<input type=hidden name=csrf value="{sid}">'
     return f"""<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
@@ -195,31 +228,23 @@ def page_main(sid):
 <header><h1>CryptoBro</h1><span class="badge warn">paper only · no real money</span>
 <span class="pill {'on' if st['running'] else ''}"><i></i>{'Running' if st['running'] else 'Stopped'}</span></header>
 
-<div class=grid>
-<div class=card>
-  <h2>Equity</h2>
-  <div><span class=equity>{equity:,.2f}<small>USDT</small></span><span class="ret {cls}">{ret:+.2f}%</span></div>
-  <p class=meta>{s.get('steps', 0)} steps · max drawdown {s.get('max_drawdown_pct', 0):.2f}% · last step {last} · next {when}</p>
-  {spark(rows)}
-  <form method=post class=actions>
+<div class=card style="margin-bottom:18px">
+  <form method=post class=actions style="margin:0">
     {csrf}
     <button class=primary formaction=/start {'disabled' if st['running'] else ''}>Start</button>
     <button class=danger formaction=/stop {'' if st['running'] else 'disabled'}>Stop</button>
     <button formaction=/step>Run one step now</button>
+    <span class=meta style="align-self:center">every {st['interval'] / 3600:g} h · last step {last} · next {when}</span>
     <button formaction=/logout style="margin-left:auto">Sign out</button>
   </form>
 </div>
-<div class=card>
-  <h2>Holdings</h2>
-  <table><tr><th>coin</th><th class=n>units</th><th class=n>entry</th></tr>
-  {pos or '<tr><td colspan=3 class=muted>nothing held</td></tr>'}</table>
-  <p class=meta>rebalance every {st['interval'] / 3600:g} h · top {paper.TOP} by score ≥ {paper.MIN_SCORE}</p>
-</div>
-</div>
+
+<div class=grid>{''.join(card(x) for x in STRATEGIES)}</div>
 
 <div class=card style="margin-top:18px"><h2>Activity</h2><pre>{logs}</pre></div>
-<footer>Buy and sell here are entries in paper.db. The exchange client is not loaded by this process,
-so it cannot place an order even if asked. Page refreshes every 20 s.</footer>
+<footer>Two rules run side by side on the same schedule, each in its own paper book, so the market
+can say which one the backtest described. Buys and sells are rows in a local database; the exchange
+client is not loaded by this process, so it cannot place an order even if asked. Refreshes every 20 s.</footer>
 </div>"""
 
 
@@ -267,8 +292,9 @@ class Handler(BaseHTTPRequestHandler):
             if not self.sid():
                 return self.send_page("forbidden", HTTPStatus.FORBIDDEN)
             st = load_state()
-            body = json.dumps({**st, "paper": {k: v for k, v in paper.status(paper.db()).items()
-                                                if k != "positions"}})
+            body = json.dumps({**st, "books": {
+                x["name"]: {k: v for k, v in paper.status(paper.db(x["db"])).items()
+                            if k != "positions"} for x in STRATEGIES}})
             data = body.encode()
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")

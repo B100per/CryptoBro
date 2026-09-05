@@ -9,10 +9,13 @@ os.environ["CONTROL_TOKEN"] = "s3cret"
 import control
 control.STATE_FILE = os.environ["CONTROL_STATE"]
 control.TOKEN = "s3cret"
+for k, st in enumerate(control.STRATEGIES):
+    st["db"] = os.path.join(d, f"book{k}.db")
+paper.breadth = lambda *a, **k: 1.0
 
 # Stub the market: fixed prices, fixed ranking. No network in a test.
 paper.prices = lambda: {"AAAUSDT": 10.0, "BBBUSDT": 20.0}
-paper.scores = lambda quote="USDT": ({"AAAUSDT": 2.0, "BBBUSDT": 1.5}, "th_klines")
+paper.scores = lambda quote="USDT", rule="chart", min_vol=0.0: ({"AAAUSDT": 2.0, "BBBUSDT": 1.5}, "th_klines")
 paper.TOP = 2
 
 # Scheduler logic, no sockets: a stopped panel never steps, a running one steps
@@ -24,7 +27,9 @@ assert control.tick(now=999) is False
 assert control.tick(now=1000) is True
 assert control.load_state()["next_step"] == 1100
 assert control.tick(now=1050) is False
-assert paper.status(paper.db())["steps"] == 1
+# every book stepped once, each in its own file
+assert all(paper.status(paper.db(x["db"]))["steps"] == 1 for x in control.STRATEGIES)
+assert len({x["db"] for x in control.STRATEGIES}) == len(control.STRATEGIES)
 control.set_running(False)
 assert control.tick(now=5000) is False, "stopped must mean stopped"
 
@@ -63,7 +68,7 @@ except urllib.error.HTTPError as e:
     assert "HttpOnly" in e.headers["Set-Cookie"]
 sid = cookie.split("=", 1)[1]
 st, body, _ = call("/", cookie=cookie)
-assert st == 200 and ">Start<" in body and "paper only" in body
+assert st == 200 and ">Start<" in body and "paper only" in body and body.count("<h2>") >= 3
 
 # CSRF: the session cookie alone is not enough to press Start.
 st, _, _ = call("/start", {"csrf": "forged"}, cookie=cookie)
@@ -78,7 +83,7 @@ except urllib.error.HTTPError as e: assert e.code == 303
 assert control.load_state()["running"] is False
 
 st, body, _ = call("/api/status", cookie=cookie)
-assert st == 200 and json.loads(body)["running"] is False
+assert st == 200 and json.loads(body)["running"] is False and len(json.loads(body)["books"]) == 2
 
 # Nothing in the panel's import graph can reach the exchange with an order.
 import sys

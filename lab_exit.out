@@ -5,3 +5,5 @@ chart @432, floor 2,000, 3 start times, excess over buy-and-hold
           hold, price only     0.0    -13.6     -11.8      1.9       0
        out of ranks = sell     0.6      7.4      15.2    137.7      20
          hold while rising     0.6     -7.4       1.6     12.0      15
+  hold, price only (fixed)     0.0    -37.1      12.9     30.0      49
+  hold, price only (fixed)     0.6     -2.5      -0.6     51.1      15
