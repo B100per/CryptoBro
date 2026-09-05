@@ -12,6 +12,7 @@ import urllib.request
 
 from binance_client import load_env
 
+BOT_NAME = "GuJaRich"
 UA = "CryptoBro (https://github.com/B100per/CryptoBro, 0.1)"
 COLORS = {"info": 3447003, "good": 3066993, "warn": 16776960, "bad": 15158332}
 
@@ -22,7 +23,10 @@ def send(title, message, level="info"):
     url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
     if not url:
         return False
-    payload = {"embeds": [{"title": title[:256],
+    # username is set per post as well as on the webhook, so a webhook that is
+    # ever recreated still shows the right name without being reconfigured.
+    payload = {"username": BOT_NAME,
+               "embeds": [{"title": title[:256],
                            "description": message[:4000],
                            "color": COLORS.get(level, COLORS["info"])}]}
     req = urllib.request.Request(

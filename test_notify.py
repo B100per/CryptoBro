@@ -11,6 +11,7 @@ assert notify.send("t", "body", "bad") is True
 url, payload = sent[-1]
 assert payload["embeds"][0]["color"] == notify.COLORS["bad"]
 assert payload["embeds"][0]["description"] == "body"
+assert payload["username"] == notify.BOT_NAME
 
 # oversized content is truncated rather than rejected by Discord
 notify.send("x" * 500, "y" * 9000)
