@@ -1,0 +1,30 @@
+# Start/stop the paper trader from a browser. Paper only: this process never
+# loads the exchange client, so it cannot place an order.
+#
+#   sudo cp deploy/control.service /etc/systemd/system/cryptobro-control.service
+#   echo 'CONTROL_TOKEN=<long random string>' | sudo tee -a /etc/cryptobro.env
+#   sudo systemctl enable --now cryptobro-control
+#
+# It listens on 127.0.0.1 only. Reach it with an SSH tunnel:
+#   ssh -N -L 8787:127.0.0.1:8787 user@server     then open http://127.0.0.1:8787
+# or put nginx with TLS in front. Do not expose the plain port to the internet.
+[Unit]
+Description=CryptoBro control panel (paper trading)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cryptobro
+WorkingDirectory=/opt/cryptobro
+EnvironmentFile=/etc/cryptobro.env
+ExecStart=/usr/bin/python3 -u control.py --host 127.0.0.1 --port 8787
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/cryptobro
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

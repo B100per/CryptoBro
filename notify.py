@@ -10,7 +10,7 @@ import sys
 import urllib.error
 import urllib.request
 
-from binance_client import load_env
+from env import load_env
 
 BOT_NAME = "GuJaRich"
 UA = "CryptoBro (https://github.com/B100per/CryptoBro, 0.1)"

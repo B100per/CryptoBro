@@ -24,23 +24,9 @@ import urllib.request
 
 TESTNET = "https://testnet.binancefuture.com"
 LIVE = "https://fapi.binance.com"
-ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
 
-def load_env(path=ENV_FILE):
-    """Read KEY=value lines into os.environ. Already-set variables win, so an
-    explicit `export` or a systemd EnvironmentFile still overrides the file."""
-    try:
-        with open(path) as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        return
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+from env import ENV_FILE, load_env   # noqa: F401  (re-exported for callers)
 
 HINTS = {
     -2015: "key is not accepted here. Common causes, in the order worth checking: "
