@@ -115,6 +115,39 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
     return metrics(curve, trades, start_equity), curve, trades, final
 
 
+def hold_return(bars, fee=0.001, quote="USDT"):
+    """Equal-weight buy at the first bar, sell at the last. The do-nothing return.
+
+    Every strategy number is unreadable without it: +86% in a window where the
+    board itself paid +120% is a loss dressed as a win.
+    """
+    rets = []
+    for sym, rows in bars.items():
+        if not sym.endswith(quote) or is_stable_pair(sym, quote) or len(rows) < 2:
+            continue
+        first, last = rows[0][4], rows[-1][4]
+        if first > 0:
+            rets.append(last * (1 - fee) / (first * (1 + fee)) - 1.0)
+    return sum(rets) / len(rets) * 100 if rets else 0.0
+
+
+def robust(bars, offsets=5, **kw):
+    """Run the same rule at several start times and report the spread.
+
+    Shifting the schedule by a few hours changes nothing a trader could name,
+    so if the return swings across offsets, the result is luck of timing. A
+    single backtest number hides that; this makes it the headline.
+    """
+    step = max(1, kw.get("rebalance", 12) // offsets)
+    out = []
+    for i in range(offsets):
+        off = i * step
+        shifted = {s: r[off:] for s, r in bars.items() if len(r) > off}
+        m, _, _, _ = run(shifted, **kw)
+        out.append((off, m, hold_return(shifted, kw.get("fee", 0.001))))
+    return out
+
+
 def metrics(curve, trades, start_equity):
     if len(curve) < 2:
         return {"bars": 0}
@@ -163,13 +196,33 @@ def main():
         "th_klines" if "--th-spot" in sys.argv else "klines")
     bars = load_bars(db, symbols, table)
     print(f"table={table} symbols={len(bars)} bars={sum(len(v) for v in bars.values()):,}")
+    kw = dict(top=arg("--top", 5, int), rebalance=arg("--rebalance", 12, int),
+              fee=arg("--fee", 0.001), min_score=arg("--min-score", 0.5))
+    if "--robust" in sys.argv:
+        rows = robust(bars, offsets=arg("--offsets", 5, int), **kw)
+        print(f"\n{'start':>8}{'return%':>10}{'hold%':>9}{'excess%':>10}"
+              f"{'maxDD%':>9}{'sharpe':>8}{'trades':>8}")
+        for off, m, hold in rows:
+            print(f"{off:>5}bar{m['return_pct']:>10.1f}{hold:>9.1f}"
+                  f"{m['return_pct'] - hold:>10.1f}{m['max_drawdown_pct']:>9.1f}"
+                  f"{m['sharpe']:>8.2f}{m['trades']:>8}")
+        ex = sorted(m["return_pct"] - h for _, m, h in rows)
+        print(f"\nexcess over buy-and-hold: median {statistics.median(ex):.1f}%, "
+              f"worst {ex[0]:.1f}%, best {ex[-1]:.1f}%")
+        # The spread is the finding. A rule whose worst start time loses is a
+        # rule you cannot size, however good its median looks.
+        print("verdict: " + ("timing luck, not an edge" if ex[0] < 0 else
+                             "positive at every start time"))
+        return
     m, curve, trades, final = run(
-        bars, top=arg("--top", 5, int), rebalance=arg("--rebalance", 12, int),
-        fee=arg("--fee", 0.001), min_score=arg("--min-score", 0.5))
+        bars, **kw)
     if not curve:
         print("not enough history to score anything")
         return
-    print(f"period: {len(curve)} rebalances, 1000 -> {final:.2f}\n")
+    hold = hold_return(bars, kw["fee"])
+    print(f"period: {len(curve)} rebalances, 1000 -> {final:.2f}")
+    print(f"buy-and-hold over the same window: {hold:.1f}%, "
+          f"excess {m['return_pct'] - hold:+.1f}%\n")
     for k, v in m.items():
         print(f"  {k:<20} {v:,.2f}" if isinstance(v, float) else f"  {k:<20} {v}")
 
