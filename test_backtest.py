@@ -133,3 +133,23 @@ on2, *_ = run(board2, top=1, rebalance=48, fee=0.0, min_score=0.0,
               score_fn=mom, window=300, min_breadth=0.5, breadth_bars=288)
 assert on2["steps"] > 0 and on2["return_pct"] > 0, on2
 print("ok")
+
+# Hold while rising: a coin that drops out of the ranking but keeps climbing is
+# kept when exit_fn says its trend is intact, and sold without exit_fn.
+n = WINDOW + 400
+steady = series([100 * (1.0015 ** i) for i in range(n)])          # rises throughout
+rocket = series([100 * (1.0005 ** i) for i in range(WINDOW + 100)] +
+                [100 * (1.0005 ** (WINDOW + 100)) * (1.004 ** j) for j in range(300)])  # outranks later
+never_broken = lambda rows, i: False
+plain, _, t_plain, _ = run({"AUSDT": steady, "BUSDT": rocket}, top=1, rebalance=48, fee=0.001,
+                           min_score=0.0, score_fn=signals.momentum(96), window=96)
+held, _, t_held, _ = run({"AUSDT": steady, "BUSDT": rocket}, top=1, rebalance=48, fee=0.001,
+                         min_score=0.0, score_fn=signals.momentum(96), window=96,
+                         exit_fn=never_broken)
+assert held["trades"] < plain["trades"], (held["trades"], plain["trades"])   # fewer rotations
+# ...and a rule that always says "broken" is exactly the old behaviour.
+same, _, t_same, _ = run({"AUSDT": steady, "BUSDT": rocket}, top=1, rebalance=48, fee=0.001,
+                         min_score=0.0, score_fn=signals.momentum(96), window=96,
+                         exit_fn=lambda rows, i: True)
+assert same["trades"] == plain["trades"] and abs(same["return_pct"] - plain["return_pct"]) < 1e-9
+print("ok")
