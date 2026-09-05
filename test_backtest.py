@@ -83,3 +83,30 @@ assert len(rows) == 4
 assert [off for off, _, _ in rows] == [0, 12, 24, 36]
 assert len({m["steps"] for _, m, _ in rows}) > 1, "shifting the start changed nothing"
 print("ok")
+
+from backtest import chart_signal
+import signals
+
+# A pluggable signal must actually steer the portfolio, not sit unused.
+falling = series([100 * (0.998 ** i) for i in range(WINDOW + 200)])
+climbing = series([100 * (1.002 ** i) for i in range(WINDOW + 200)])
+pair = {"UPUSDT": climbing, "DOWNUSDT": falling}
+
+mom, _, _, mom_final = run(pair, top=1, rebalance=48, fee=0.0, min_score=0.0,
+                           score_fn=signals.momentum(96), window=96)
+rev, _, _, rev_final = run(pair, top=1, rebalance=48, fee=0.0, min_score=0.0,
+                           score_fn=signals.reversal(96), window=96)
+assert mom_final > rev_final, (mom_final, rev_final)   # one buys the winner, one the loser
+
+# The liquidity filter must exclude a thin book, leaving nothing to buy.
+thin = {"UPUSDT": [(t, o, h, l, c, 0.000001) for t, o, h, l, c, _ in climbing]}
+m, curve, _, final = run(thin, top=1, rebalance=48, fee=0.0, min_score=0.0,
+                         score_fn=signals.momentum(96), window=96,
+                         min_quote_vol=1_000_000)
+# Nothing tradable means no curve at all, and the money is untouched.
+assert m == {"bars": 0} and curve == [] and abs(final - 1000.0) < 1e-9, (m, final)
+# ...and must let a liquid one through, otherwise it filters everything.
+m, *_ = run({"UPUSDT": climbing}, top=1, rebalance=48, fee=0.0, min_score=0.0,
+            score_fn=signals.momentum(96), window=96, min_quote_vol=1.0)
+assert m["steps"] > 0
+print("ok")

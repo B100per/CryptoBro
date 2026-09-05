@@ -43,7 +43,14 @@ def load_bars(db, symbols=None, table="klines"):
     return out
 
 
-def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0):
+def chart_signal(rows, i, window=WINDOW):
+    """The rule the bot ships with: read the chart, score its structure."""
+    chart = chart_read([(r[1], r[2], r[3], r[4], r[5]) for r in rows[i - window:i + 1]])
+    return score(chart, None) if chart else None
+
+
+def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0,
+        score_fn=chart_signal, window=WINDOW, min_quote_vol=0.0):
     """Equal-weight the top `top` scorers, rebalancing every `rebalance` bars.
 
     Cash and holdings are tracked separately, so equity is always a sum of two
@@ -63,17 +70,22 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
         prices, scores = {}, {}
         for sym, rows in bars.items():
             i = index[sym].get(now)
-            if i is None or i < WINDOW:
+            if i is None or i < window:
                 continue
             last[sym] = rows[i][4]
             if is_stable_pair(sym):
                 continue
-            chart = chart_read([(r[1], r[2], r[3], r[4], r[5])
-                                for r in rows[i - WINDOW:i + 1]])
-            if not chart:
+            # A price you cannot trade at is not a price. Thin books are
+            # where a backtest quietly books fills the exchange would refuse.
+            if min_quote_vol:
+                vol = sorted(r[5] * r[4] for r in rows[max(0, i - 288):i])
+                if not vol or vol[len(vol) // 2] < min_quote_vol:
+                    continue
+            sc = score_fn(rows, i, window)
+            if sc is None:
                 continue
             prices[sym] = rows[i][4]
-            scores[sym] = score(chart, None)
+            scores[sym] = sc
 
         # A holding whose chart could not be read this step is still worth
         # something. Valuing it at zero is how a stablecoin position erased the
