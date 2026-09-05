@@ -158,6 +158,10 @@ def collect_once(db, kline_limit=3, history_days=None):
 
 def main():
     db = sqlite3.connect(DB)
+    # WAL lets readers work while a write is in flight. Without it the hour-long
+    # backfill blocked every reader: paper.py died on "database is locked" and
+    # never took a single step.
+    db.execute("PRAGMA journal_mode=WAL")
     db.execute(SCHEMA)
     db.execute(SCHEMA_KLINES)
     db.execute(SCHEMA_TH)

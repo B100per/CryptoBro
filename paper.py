@@ -21,7 +21,9 @@ import notify
 from features import load
 
 DB = "paper.db"
-DATA_DB = "file:data.db?mode=ro"
+# Not mode=ro: a read-only connection cannot create the -shm file a WAL
+# database needs, so it fails to open while the collector is writing.
+DATA_DB = "data.db"
 TH = "https://api.binance.th"
 START_EQUITY = 1000.0     # USDT, notional. No real money is involved.
 TOP = 5
@@ -57,9 +59,11 @@ def prices():
 def scores(quote="USDT"):
     """Ranked pairs from the TH board, using whichever kline table has data."""
     d = sqlite3.connect(DATA_DB, uri=True, timeout=60)
+    # LIMIT 1, not count(*): counting ten million rows every step to answer
+    # "is it empty" is a full table scan for one bit of information.
     table = "th_klines" if d.execute(
-        "SELECT count(*) FROM sqlite_master WHERE name='th_klines'").fetchone()[0] \
-        and d.execute("SELECT count(*) FROM th_klines").fetchone()[0] else "klines"
+        "SELECT 1 FROM sqlite_master WHERE name='th_klines'").fetchone() \
+        and d.execute("SELECT 1 FROM th_klines LIMIT 1").fetchone() else "klines"
     out = {}
     for sym, v in load(d, table=table).items():
         if sym.endswith(quote):
