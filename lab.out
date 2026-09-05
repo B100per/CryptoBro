@@ -14,3 +14,7 @@ excess over buy-and-hold, across 5 start times
  vol-scaled mom 7d    432      4.6      56.5    242.6     155
       momentum 30d    144    -75.3     -60.5    -50.6      89
       momentum 30d    432    -52.3     -41.0    -28.6      47
+symbols=384 bars=9,934,583 min_quote_vol=0
+
+excess over buy-and-hold, across 5 start times
+            signal  rebal   worst%   median%    best%  trades
