@@ -8,3 +8,5 @@ paper.db
 progress.html
 dashboard.html
 control_state.json
+*.db-shm
+*.db-wal
