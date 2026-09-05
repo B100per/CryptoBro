@@ -162,10 +162,11 @@ function lineChart(series, w = 880, h = 300, [t, r, b, l] = [16, 90, 36, 56]) {
   const X = ts => l + (t1 > t0 ? (ts - t0) / (t1 - t0) : 0) * (w - l - r), Y = v => t + (hi - v) / (hi - lo) * (h - t - b);
   let o = `<svg class=chart viewBox="0 0 ${w} ${h}" role=img>`;
   for (const v of tk) o += `<line x1=${l} y1=${Y(v).toFixed(1)} x2=${w - r} y2=${Y(v).toFixed(1)} stroke="${C.grid}"/><text x=${l - 10} y=${(Y(v) + 4).toFixed(1)} text-anchor=end font-size=11 fill="${C.mut}">${num(v, 0)}</text>`;
-  for (let i = 0; i < 5; i++) { const ts = t0 + (t1 - t0) * i / 4; o += `<text x=${X(ts).toFixed(1)} y=${h - 12} text-anchor=middle font-size=11 fill="${C.mut}">${thDate(ts)}</text>`; }
+  const lbl = t1 - t0 < 2 * 86400e3 ? ts => new Date(ts).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) : thDate;
+  for (let i = 0; i < 5; i++) { const ts = t0 + (t1 - t0) * i / 4; o += `<text x=${X(ts).toFixed(1)} y=${h - 12} text-anchor=middle font-size=11 fill="${C.mut}">${lbl(ts)}</text>`; }
   for (const s of series) {
     const pts = s.pts.map(p => `${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`);
-    o += `<path d="M${X(s.pts[0].t).toFixed(1)},${Y(lo).toFixed(1)} L${pts.join(" L")} L${X(s.pts[s.pts.length - 1].t).toFixed(1)},${Y(lo).toFixed(1)} Z" fill="${s.color}" fill-opacity=0.10/>`;
+    o += `<path d="M${X(s.pts[0].t).toFixed(1)},${Y(lo).toFixed(1)} L${pts.join(" L")} L${X(s.pts[s.pts.length - 1].t).toFixed(1)},${Y(lo).toFixed(1)} Z" fill="${s.color}" fill-opacity="0.10"/>`;
     o += `<polyline points="${pts.join(" ")}" fill=none stroke="${s.color}" stroke-width=2 stroke-linejoin=round stroke-linecap=round/>`;
   }
   for (const s of series) {
@@ -262,10 +263,11 @@ function render() {
   const m = periodBars(total, monKey, 12, base, k => MON[+k.slice(5) - 1]);
   $("monthly").innerHTML = barChart(m.vals, m.labels, 400, 220, 18, [14, 8, 30, 50]);
 
-  $("books").innerHTML = names.map(n => { const b = books[n], r = b.return_pct || 0; return `<div class="card book">
+  const drawdown = ps => { let peak = 0, dd = 0; for (const p of ps) { peak = Math.max(peak, p.equity); dd = Math.max(dd, peak ? (peak - p.equity) / peak : 0); } return dd * 100; };
+  $("books").innerHTML = names.map(n => { const b = books[n], r = ((b.equity ?? START) - START) / START * 100; return `<div class="card book">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class=dot style="background:${COLOR[n]};border-radius:3px;width:12px;height:12px"></span><b>${esc(b.title)}</b><span class=sub>last rebalance ${when(b.updated)}${b.reason === "manual" ? " (manual)" : ""}</span></div>
     <div style="display:flex;align-items:baseline;gap:12px"><span class=v>${num(b.equity ?? START)}</span><b>${sgn(r)}%</b></div>
-    <div class=kv><div><div>Max drawdown</div><div>-${num(b.max_drawdown_pct || 0)}%</div></div><div><div>Rebalances</div><div>${b.steps || 0}</div></div><div><div>Holding</div><div>${Object.keys(b.held || {}).length} coins</div></div></div>
+    <div class=kv><div><div>Max drawdown</div><div>-${num(drawdown(pts(b)))}%</div></div><div><div>Rebalances</div><div>${b.steps || 0}</div></div><div><div>Holding</div><div>${Object.keys(b.held || {}).length} coins</div></div></div>
   </div>`; }).join("") || '<div class=card><p class=muted style="margin:0">No book yet</p></div>';
 
   const rows = names.flatMap(n => Object.entries(books[n].held || {}).map(([sym, [units, entry]]) => {
