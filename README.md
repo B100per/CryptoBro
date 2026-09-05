@@ -107,6 +107,35 @@ THB budget is ten slots and no more. Coins already held that still rank are
 left alone; ones that no longer rank are sold, unless the holding is dust
 below the pair minimum.
 
+## Backtest
+
+```bash
+python3 collector.py --history 90   # page back 90 days of 5m candles first
+python3 backtest.py                 # walk-forward, all symbols
+python3 backtest.py --th --top 3 --rebalance 288 --fee 0.001
+```
+
+Rebalances a portfolio into the top scorers exactly the way `trade.py` does,
+so the number answers the question that matters. Scores are price-only:
+Binance serves 30 days of positioning data and the collector started
+2026-09-04, so those terms cannot be backtested yet.
+
+**Result on 90 days, 59 symbols, 0.1% fee, hourly rebalance: -91%.** At zero
+fees the same run is -8.9%, so the signal has no edge to lose in the first
+place; fees then turn flat into ruin. Do not run this live.
+
+## Alerts and journal
+
+```bash
+python3 notify.py "test"     # Discord webhook, DISCORD_WEBHOOK_URL in .env
+python3 journal.py           # totals
+python3 journal.py --tail 20 # recent entries
+```
+
+Every planned and executed order is appended to `logs/trades.csv` and
+`logs/trades.json`. Alerts are best-effort: a dead webhook logs and moves on
+rather than taking the trading loop down.
+
 ## Circuit breaker
 
 `risk.py` halts buying for the rest of the UTC day once account equity drops

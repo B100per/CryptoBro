@@ -6,6 +6,7 @@ taker buy/sell volume for the top-N perpetuals every 5 minutes, into sqlite.
     python3 collector.py            # run forever
     python3 collector.py --once     # one cycle then exit
     python3 collector.py --backfill # one cycle, pulling 1000 candles of price history
+    python3 collector.py --history 90  # one cycle, paging back 90 days of candles
 """
 import json
 import sqlite3
@@ -63,17 +64,34 @@ def build_row(ts, sym, prem, tick, oi, top_acct, top_pos, glob, taker):
     )
 
 
-def save_klines(db, sym, limit):
-    """Store 5m candles. Unlike the positioning endpoints, klines have full history,
-    so this can backfill years in one call."""
-    rows = [(int(k[0]), sym, float(k[1]), float(k[2]), float(k[3]), float(k[4]),
-             float(k[5]), float(k[7]), int(k[8]), float(k[9]))
-            for k in get("/fapi/v1/klines", symbol=sym, interval="5m", limit=limit)]
-    db.executemany("INSERT OR REPLACE INTO klines VALUES (" + ",".join("?" * 10) + ")", rows)
-    return len(rows)
+def save_klines(db, sym, limit=3, days=None):
+    """Store 5m candles. Unlike the positioning endpoints, klines have full
+    history, so `days` pages backwards as far as you ask."""
+    def store(batch):
+        rows = [(int(k[0]), sym, float(k[1]), float(k[2]), float(k[3]), float(k[4]),
+                 float(k[5]), float(k[7]), int(k[8]), float(k[9])) for k in batch]
+        db.executemany("INSERT OR REPLACE INTO klines VALUES (" + ",".join("?" * 10) + ")", rows)
+        return len(rows)
+
+    if not days:
+        return store(get("/fapi/v1/klines", symbol=sym, interval="5m", limit=limit))
+
+    start = int(time.time() * 1000) - days * 86_400_000
+    total, cursor = 0, start
+    while cursor < time.time() * 1000:
+        batch = get("/fapi/v1/klines", symbol=sym, interval="5m",
+                    startTime=cursor, limit=1000)
+        if not batch:
+            break
+        total += store(batch)
+        cursor = int(batch[-1][0]) + PERIOD_MS
+        if len(batch) < 1000:
+            break
+        time.sleep(0.15)   # 1000-bar pages cost weight 5; do not sprint
+    return total
 
 
-def collect_once(db, kline_limit=3):
+def collect_once(db, kline_limit=3, history_days=None):
     ts = int(time.time() * 1000) // PERIOD_MS * PERIOD_MS
     prem = {p["symbol"]: p for p in get("/fapi/v1/premiumIndex")}
     tickers = get("/fapi/v1/ticker/24hr")
@@ -86,7 +104,7 @@ def collect_once(db, kline_limit=3):
                                   d("openInterestHist"), d("topLongShortAccountRatio"),
                                   d("topLongShortPositionRatio"), d("globalLongShortAccountRatio"),
                                   d("takerlongshortRatio")))
-            save_klines(db, sym, kline_limit)
+            save_klines(db, sym, kline_limit, days=history_days)
         except Exception as e:
             print(f"skip {sym}: {e}", file=sys.stderr)
         time.sleep(0.1)
@@ -100,6 +118,9 @@ def main():
     db = sqlite3.connect(DB)
     db.execute(SCHEMA)
     db.execute(SCHEMA_KLINES)
+    if "--history" in sys.argv:
+        days = int(sys.argv[sys.argv.index("--history") + 1])
+        return collect_once(db, history_days=days)
     if "--backfill" in sys.argv:
         return collect_once(db, kline_limit=1000)
     if "--once" in sys.argv:

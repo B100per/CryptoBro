@@ -1,5 +1,8 @@
+import notify
 from binance_th import BinanceTH
 from trade import plan
+
+notify.send = lambda *a, **k: False
 
 PRICES = {"BTCTHB": 2_700_000.0, "ETHTHB": 84_000.0, "SOLTHB": 3_400.0,
           "XRPTHB": 60.0, "BNBTHB": 30_000.0}

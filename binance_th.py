@@ -97,8 +97,10 @@ class BinanceTH(Binance):
 
         if side.upper() == "BUY":
             # Same reasoning as the cap: one guard here covers every caller.
-            allowed, why, _ = risk.check(self.equity(quote), self.drawdown_limit)
+            allowed, why, st = risk.check(self.equity(quote), self.drawdown_limit)
             if not allowed:
+                import notify
+                notify.send("Circuit breaker", why, "bad")
                 raise RiskError(why)
             after = self.exposure(quote) + notional
             if after > self.max_notional:

@@ -1,6 +1,10 @@
 import os, tempfile
+import notify
 import risk
 from binance_client import RiskError
+
+# Tests must never post anywhere. Stub the alert before anything can trigger it.
+notify.send = lambda *a, **k: False
 from binance_th import BinanceTH
 
 risk.STATE_FILE = os.path.join(tempfile.mkdtemp(), "risk_state.json")

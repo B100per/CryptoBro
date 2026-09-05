@@ -13,6 +13,8 @@ binance.th. Two different venues for the same asset.
 import sqlite3
 import sys
 
+import journal
+import notify
 from binance_client import RiskError
 from binance_th import BinanceTH
 from features import load
@@ -87,6 +89,7 @@ def main():
         c.max_notional = float(os.environ.get(f"MAX_NOTIONAL_{quote}", 0)) or None
 
     rows, ranked, slots = plan(c, quote)
+    scores = {p: sc for p, _, sc in ranked}
     free = c.balances().get(quote, 0.0)
     print(f"quote={quote} cap={c.max_notional} free={free:.2f} "
           f"exposure={c.exposure(quote):.2f} slots={slots} candidates={len(ranked)}")
@@ -97,19 +100,31 @@ def main():
     for side, pair, qty, value in rows:
         print(f"{side:<6}{pair:<12}{qty:>16.8f}{value:>12.2f}")
 
+    notify.orders(rows, quote, live)
+
     if not live:
         print("\nDRY RUN. Nothing was sent. Add --live to place these orders.")
+        for side, pair, qty, value in rows:
+            journal.record(side, pair, qty, value / qty if qty else 0, quote,
+                           score=scores.get(pair), live=False)
         return
 
     print(f"\nAbout to send {len(rows)} REAL orders on binance.th.")
     if input("Type EXACTLY 'yes i am sure' to continue: ").strip() != "yes i am sure":
         print("aborted")
         return
-    for side, pair, qty, _ in rows:
+    for side, pair, qty, value in rows:
+        price = value / qty if qty else 0
         try:
-            print(side, pair, c.order(pair, side, qty, quote=quote))
-        except RiskError as e:
+            res = c.order(pair, side, qty, quote=quote)
+            print(side, pair, res)
+            journal.record(side, pair, qty, price, quote, score=scores.get(pair),
+                           live=True, order_id=res.get("orderId"))
+        except Exception as e:
             print(f"refused: {e}")
+            journal.record(side, pair, qty, price, quote, score=scores.get(pair),
+                           live=True, error=str(e))
+            notify.send(f"Order failed: {side} {pair}", str(e), "bad")
 
 
 if __name__ == "__main__":
