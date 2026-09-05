@@ -1,5 +1,15 @@
 {
   "functions": [{ "source": "functions", "runtime": "python311", "codebase": "paper" }],
-  "hosting": { "public": "public", "ignore": ["firebase.json", "**/.*"] },
+  "hosting": {
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*"],
+    "headers": [
+      {
+        "//": "Hosting caches everything for an hour by default, so a deploy took an hour to reach the browser. The site is one small page; always fetch it fresh. Matching only .html missed the bare root URL, hence the bare glob.",
+        "source": "**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      }
+    ]
+  },
   "firestore": { "rules": "firestore.rules" }
 }
