@@ -13,7 +13,10 @@
   </array>
   <key>WorkingDirectory</key><string>/Users/100per/GitHub/CryptoBro</string>
   <key>RunAtLoad</key><true/>
-  <key>StartInterval</key><integer>3600</integer>
+  <!-- 12h, not hourly. The backtest is clear that hourly rebalancing loses to
+     fees alone (-97% over 90 days); forward-testing a cadence we would never
+     deploy answers a question nobody asked. -->
+  <key>StartInterval</key><integer>43200</integer>
   <key>StandardOutPath</key><string>/Users/100per/GitHub/CryptoBro/logs/paper.log</string>
   <key>StandardErrorPath</key><string>/Users/100per/GitHub/CryptoBro/logs/paper.err</string>
 </dict>
