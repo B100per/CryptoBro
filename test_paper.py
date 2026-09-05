@@ -49,3 +49,19 @@ for _, cash_v, _, _ in c.execute("SELECT * FROM equity"):
 s = paper.status(c)
 assert s["steps"] == 4 and s["fills"] > 0
 print("ok")
+
+# --mark values the portfolio without trading: a price move shows up as equity,
+# and not one unit changes hands.
+before_pos = sorted(c.execute("SELECT symbol, units FROM positions"))
+before_fills = c.execute("SELECT count(*) FROM fills").fetchone()[0]
+PX["AAAUSDT"] = 40.0
+m = paper.mark(c, now=99)
+assert sorted(c.execute("SELECT symbol, units FROM positions")) == before_pos
+assert c.execute("SELECT count(*) FROM fills").fetchone()[0] == before_fills
+assert m["equity"] > paper.status(c)["equity"] * 0.999   # recorded, not discarded
+assert c.execute("SELECT equity FROM equity WHERE ts=99").fetchone()[0] == m["equity"]
+
+# ...and a mark with nothing held is just the cash.
+c.execute("DELETE FROM positions")
+assert abs(paper.mark(c, now=100)["holdings"]) < 1e-12
+print("ok")
