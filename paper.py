@@ -21,6 +21,7 @@ import sys
 import time
 import urllib.request
 
+import book
 import notify
 from features import load
 
@@ -86,7 +87,6 @@ def liquid(d, table, min_vol, bars=288):
 
 def scores(quote="USDT", rule="chart", min_vol=0.0):
     """Ranked pairs from the TH board under one of the rules the lab kept."""
-    from backtest import is_stable_pair
     d = sqlite3.connect(DATA_DB, uri=True, timeout=60)
     table = _table(d)
     keep = liquid(d, table, min_vol)
@@ -106,7 +106,7 @@ def scores(quote="USDT", rule="chart", min_vol=0.0):
     else:
         raise ValueError(f"unknown rule {rule!r}")
     out = {s: v for s, v in out.items()
-           if s.endswith(quote) and not is_stable_pair(s, quote)
+           if s.endswith(quote) and not book.is_stable_pair(s, quote)
            and (keep is None or s in keep)}
     return out, table
 
@@ -153,46 +153,17 @@ def step(c, now=None, rule="chart", breadth_floor=0.0, min_vol=0.0, min_score=No
     sc, table = scores(rule=rule, min_vol=min_vol)
     held = {s: (u, e) for s, u, e, _ in c.execute("SELECT * FROM positions")}
 
-    holdings = sum(u * px[s] for s, (u, _) in held.items() if s in px)
-    equity = cash(c) + holdings
-    picks = [s for s, v in sorted(sc.items(), key=lambda kv: -kv[1])
-             if v >= min_score and s in px][:TOP]
+    picks = book.select(sc, px, TOP, min_score)
     if breadth_floor and picks and breadth() < breadth_floor:
         picks = []
-    target = equity / len(picks) if picks else 0.0
 
-    bal = cash(c)
-    for sym, (units, _) in held.items():
-        if sym in picks or sym not in px:
-            continue
-        proceeds = units * px[sym]
-        bal += proceeds * (1 - FEE)
-        c.execute("DELETE FROM positions WHERE symbol=?", (sym,))
-        c.execute("INSERT INTO fills VALUES (?,?,?,?,?,?)",
-                  (now, "SELL", sym, units, px[sym], proceeds * FEE))
-
-    for sym in picks:
-        have = held.get(sym, (0.0, 0.0))[0] * px[sym]
-        delta = target - have
-        if abs(delta) < equity * 0.02:      # not worth the fee to nudge
-            continue
-        if delta > 0:
-            delta = min(delta, max(0.0, bal / (1 + FEE)))
-            if delta <= 0:
-                continue
-        bal -= delta + abs(delta) * FEE
-        units = held.get(sym, (0.0, 0.0))[0] + delta / px[sym]
-        c.execute("INSERT OR REPLACE INTO positions VALUES (?,?,?,?)",
-                  (sym, units, px[sym], now))
-        c.execute("INSERT INTO fills VALUES (?,?,?,?,?,?)",
-                  (now, "BUY" if delta > 0 else "SELL", sym, abs(delta) / px[sym],
-                   px[sym], abs(delta) * FEE))
-
-    # Float noise leaves cash at -5e-14 after spending it all. Round it away so
-    # the stored balance is honest, but keep it signed so a real overdraft still shows.
-    bal = round(bal, 8)
+    bal, after, fills = book.rebalance(cash(c), held, px, picks, now, fee=FEE)
+    c.execute("DELETE FROM positions")
+    c.executemany("INSERT INTO positions VALUES (?,?,?,?)",
+                  [(sym, u, e, now) for sym, (u, e) in after.items()])
+    c.executemany("INSERT INTO fills VALUES (?,?,?,?,?,?)", fills)
     cash(c, bal)
-    holdings = sum(u * px[s] for s, u, _, _ in c.execute("SELECT * FROM positions") if s in px)
+    _, holdings, _ = book.value(bal, after, px)
     c.execute("INSERT OR REPLACE INTO equity VALUES (?,?,?,?)",
               (now, bal, holdings, bal + holdings))
     c.commit()

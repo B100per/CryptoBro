@@ -1,0 +1,5 @@
+{
+  "functions": [{ "source": "functions", "runtime": "python312", "codebase": "paper" }],
+  "hosting": { "public": "public", "ignore": ["firebase.json", "**/.*"] },
+  "firestore": { "rules": "firestore.rules" }
+}
