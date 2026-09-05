@@ -1,79 +1,126 @@
 <!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>CryptoBro</title>
+<link rel=stylesheet href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
 <style>
-:root{color-scheme:light dark;--bg:#f6f6f2;--fg:#1a1a18;--mut:#74746c;--line:#e0e0d8;
- --card:#fff;--up:#0d7a45;--down:#b53a22;--accent:#1f5fbf;--accent-fg:#fff;--warn:#8a6d00;--warn-bg:#fff6d6}
-@media(prefers-color-scheme:dark){:root{--bg:#121211;--fg:#ebebe5;--mut:#8f8f86;--line:#2a2a26;
- --card:#1b1b19;--up:#3fc07f;--down:#ef6d50;--accent:#5b8ee6;--accent-fg:#0b1220;--warn:#f0c94c;--warn-bg:#2a2410}}
+:root{--plane:#0d0d0d;--surf:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--mut:#898781;--grid:#2c2c2a;--axis:#383835;
+ --ring:rgba(255,255,255,0.10);--s1:#3987e5;--s2:#d95926;--up:#0ca30c;--down:#d03b3b;--accent:#e8b04b}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
- font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Inter,sans-serif}
-.wrap{max-width:920px;margin:0 auto;padding:32px 20px 48px}
-header{display:flex;align-items:center;gap:14px;margin-bottom:26px}
-header h1{font-size:17px;margin:0;letter-spacing:.02em}
-.badge{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;
- padding:4px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
-.badge.warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}
-.pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
-.pill i{width:9px;height:9px;border-radius:50%;background:var(--mut);display:inline-block}
-.pill.on i{background:var(--up);box-shadow:0 0 0 4px color-mix(in srgb,var(--up) 22%,transparent)}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-@media(max-width:700px){.grid{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
-.card h2{margin:0 0 12px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
-.equity{font-size:44px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;line-height:1.1}
-.equity small{font-size:15px;color:var(--mut);font-weight:500;margin-left:6px}
-.ret{font-size:20px;font-weight:650;margin-left:12px}
-.up{color:var(--up)}.down{color:var(--down)}
-.meta{color:var(--mut);font-size:13px;margin:6px 0 0}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin:0;align-items:center}
-button{font:inherit;font-weight:600;padding:11px 18px;border-radius:10px;border:1px solid var(--line);
- background:var(--card);color:var(--fg);cursor:pointer}
-button.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
-button.danger{color:var(--down)}
-button:disabled{opacity:.45;cursor:default}
-.chart{width:100%;height:auto;margin-top:14px}
-.chart polyline{fill:none;stroke:var(--up);stroke-width:2;stroke-linejoin:round}
-.chart.down polyline{stroke:var(--down)}
-.zero{stroke:var(--line);stroke-dasharray:3 4}
-.lbl{fill:var(--mut);font-size:11px;font-family:ui-monospace,monospace}
-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:13.5px}
-th{color:var(--mut);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
-td.n{text-align:right;font-family:ui-monospace,monospace;font-size:12.5px}
+body{margin:0;background:var(--plane);color:var(--ink);font:14px/1.5 "IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+ background-image:radial-gradient(1200px 500px at 20% -10%,rgba(232,176,75,0.07),transparent 60%)}
+a{color:var(--accent)}
+.wrap{max-width:1440px;margin:0 auto;padding:36px 48px 56px;display:flex;flex-direction:column;gap:24px}
+@media(max-width:900px){.wrap{padding:20px 16px 40px}}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:700}
+.logo i{width:34px;height:34px;border-radius:10px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center}
+.badge{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;padding:5px 10px;border-radius:999px;color:var(--accent);border:1px solid rgba(232,176,75,0.35)}
+.pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--mut);display:inline-block}
+.pill.on i{background:var(--up);box-shadow:0 0 0 4px rgba(12,163,12,0.18)}
+.chips{display:inline-flex;gap:6px;flex-wrap:wrap}
+button,.chip{font:inherit;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;color:var(--ink2);border:1px solid rgba(255,255,255,0.12);background:transparent;cursor:pointer}
+button.on,.chip.on{background:var(--ink);color:var(--plane);border-color:transparent}
+button.primary{background:var(--accent);color:var(--plane);border-color:transparent}
+button:disabled{opacity:.4;cursor:default}
+.card{background:var(--surf);border:1px solid var(--ring);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.card h2{margin:0;font-size:15px;font-weight:600}
+.sub{font-size:12px;color:var(--mut)}
+.label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:stretch}
+.hero .big{font-size:64px;font-weight:600;letter-spacing:-.03em;line-height:1}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.tile .v{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+.tile .v small,.big+small{font-size:13px;color:var(--mut);font-weight:500;margin-left:6px}
+.delta{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink2)}
+.delta b{color:var(--ink)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.span2{grid-column:span 2}
+.col{display:flex;flex-direction:column;gap:20px}
+@media(max-width:1000px){.hero,.g3{grid-template-columns:1fr}.span2{grid-column:auto}.hero .big{font-size:44px}}
+@media(max-width:600px){.tiles{grid-template-columns:1fr}}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:2px;display:inline-block}
+.book .v{font-size:34px;font-weight:600;letter-spacing:-.02em}
+.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;font-size:13px}
+.kv div div:first-child{color:var(--mut)}.kv div div:last-child{font-weight:600}
+svg.chart{display:block;width:100%;height:auto;font-family:inherit}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{text-align:left;padding:8px 10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--mut);border-bottom:1px solid var(--axis);white-space:nowrap}
+td{padding:12px 10px;border-bottom:1px solid var(--grid);color:var(--ink2);white-space:nowrap}
+th.n,td.n{text-align:right}
+td.k{font-weight:600;color:var(--ink)}
+.coin{width:28px;height:28px;border-radius:50%;background:#262624;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink2);margin-right:10px;vertical-align:middle}
+.meter{display:inline-block;width:120px;height:6px;border-radius:3px;background:#184f95;overflow:hidden;vertical-align:middle;margin-right:10px}
+.meter i{display:block;height:100%;background:var(--s1)}
 .muted{color:var(--mut)}
-.login{max-width:380px;margin:12vh auto 0}
-footer{margin-top:26px;color:var(--mut);font-size:12.5px}
+.err{color:var(--down);font-size:13px;margin:0}
+footer{font-size:12px;color:var(--mut)}
+.login{max-width:420px;margin:12vh auto 0}
 [hidden]{display:none!important}
 </style>
 
 <div class="wrap login" id=login>
   <div class=card>
-    <header><h1>CryptoBro</h1><span class="badge warn">paper only</span></header>
-    <p class=muted>One Google account may see the books and press the buttons.</p>
-    <button class=primary id=signin>Sign in with Google</button>
-    <p class=down id=login-err></p>
+    <header><span class=logo><i><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke="#0d0d0d" stroke-width=2.5 stroke-linecap=round stroke-linejoin=round><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></i>CryptoBro</span><span class=badge>paper only</span></header>
+    <p class=muted style="margin:0">บัญชี Google ของเจ้าของเท่านั้นที่เห็นสมุดบัญชีและกดปุ่มได้</p>
+    <button class=primary id=signin style="align-self:flex-start;padding:11px 18px;font-size:14px">เข้าสู่ระบบด้วย Google</button>
+    <p class=err id=login-err></p>
   </div>
 </div>
 
 <div class=wrap id=main hidden>
-  <header><h1>CryptoBro</h1><span class="badge warn">paper only · no real money</span>
-    <span class=pill id=pill><i></i><span id=pill-txt>Stopped</span></span></header>
-  <div class=card style="margin-bottom:18px">
-    <div class=actions>
-      <button class=primary id=start>Start</button>
-      <button class=danger id=stop>Stop</button>
-      <button id=step>Run one step now</button>
-      <span class=meta id=sched></span>
-      <button id=signout style="margin-left:auto">Sign out</button>
+  <header>
+    <span class=logo><i><svg width=18 height=18 viewBox="0 0 24 24" fill=none stroke="#0d0d0d" stroke-width=2.5 stroke-linecap=round stroke-linejoin=round><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></i>CryptoBro</span>
+    <span class=badge>Paper only · ไม่ใช่เงินจริง</span>
+    <span class=pill id=pill><i></i><span id=pill-txt>หยุดอยู่</span></span>
+    <span class=chips>
+      <button id=start>เริ่ม</button><button id=stop>หยุด</button><button class=on id=step>ก้าวหนึ่งครั้ง</button><button id=signout>ออกจากระบบ</button>
+    </span>
+  </header>
+  <p class=err id=err></p>
+
+  <div class=hero>
+    <div style="display:flex;flex-direction:column;justify-content:center;gap:10px">
+      <div class=label>มูลค่าพอร์ตรวมสองกลยุทธ์</div>
+      <div><span class=big id=total>—</span><small style="font-size:18px">USDT</small></div>
+      <div class=delta id=total-delta></div>
     </div>
-    <p class=down id=err></p>
+    <div class=tiles>
+      <div class="card tile"><div class=label>กำไรวันนี้</div><div class=v id=t-day>—</div><div class=delta id=t-day-d></div></div>
+      <div class="card tile"><div class=label>กำไรเดือนนี้</div><div class=v id=t-mon>—</div><div class=delta id=t-mon-d></div></div>
+      <div class="card tile"><div class=label>กำไรปีนี้</div><div class=v id=t-yr>—</div><div class=delta id=t-yr-d></div></div>
+    </div>
   </div>
-  <div class=grid id=books></div>
-  <footer>Two rules run side by side on the same 12-hour clock, each in its own paper book, so the
-  market can say which one the backtest described. A step is a Cloud Function that reads the
-  Binance TH board and writes rows to Firestore; no exchange key exists on this project, so it
-  cannot place an order even if asked.</footer>
+
+  <div class=g3>
+    <div class="card span2">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div><h2>มูลค่าพอร์ตแยกตามกลยุทธ์</h2><div class=sub>USDT · บันทึกทุก 12 ชม.</div></div>
+        <div class=legend id=legend></div>
+        <div class=chips style="margin-left:auto" id=ranges>
+          <span class=chip data-r=1>1 วัน</span><span class="chip on" data-r=30>1 เดือน</span><span class=chip data-r=365>1 ปี</span><span class=chip data-r=0>ทั้งหมด</span>
+        </div>
+      </div>
+      <div id=line></div>
+    </div>
+    <div class=col id=books></div>
+  </div>
+
+  <div class=g3>
+    <div class="card span2"><div><h2>กำไรขาดทุนรายวัน</h2><div class=sub>USDT · รวมสองกลยุทธ์ · 30 วันล่าสุด</div></div><div id=daily></div></div>
+    <div class=card><div><h2>กำไรขาดทุนรายเดือน</h2><div class=sub>USDT · 12 เดือนล่าสุด</div></div><div id=monthly></div></div>
+  </div>
+
+  <div class=card>
+    <div><h2>เหรียญที่ถืออยู่</h2><div class=sub id=hold-sub></div></div>
+    <div class=tbl><table><thead><tr><th>เหรียญ</th><th>กลยุทธ์</th><th class=n>จำนวน</th><th class=n>ราคาเข้า</th><th class=n>ราคาตอนนี้</th><th class=n>มูลค่า (USDT)</th><th class=n>กำไร/ขาดทุน</th><th>สัดส่วน</th></tr></thead><tbody id=rows></tbody></table></div>
+  </div>
+
+  <footer>สองกลยุทธ์เดินบนนาฬิกา 12 ชั่วโมงเดียวกัน แต่ละกลยุทธ์มีสมุดบัญชีของตัวเอง เพื่อให้ตลาดเป็นผู้บอกว่าอันไหนตรงกับที่ backtest บรรยายไว้ ·
+  ก้าวหนึ่งคือ Cloud Function ที่อ่านกระดาน Binance TH แล้วเขียนแถวลง Firestore ไม่มีคีย์กระดานซื้อขายในโปรเจกต์นี้ จึงส่งคำสั่งจริงไม่ได้</footer>
 </div>
 
 <script src="/__/firebase/10.14.1/firebase-app-compat.js"></script>
@@ -84,64 +131,171 @@ footer{margin-top:26px;color:var(--mut);font-size:12.5px}
 <script>
 const $ = id => document.getElementById(id);
 const db = firebase.firestore(), ctl = db.doc("control/state");
-const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const when = ms => ms ? new Date(ms).toLocaleString([], {day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit"}) : "never";
+const START = 1000, ORDER = ["chart", "volmom"], COLOR = {chart: "#3987e5", volmom: "#d95926"};
+const C = {surf: "#1a1a19", ink: "#fff", mut: "#898781", grid: "#2c2c2a", axis: "#383835", up: "#0ca30c", down: "#d03b3b"};
+const MON = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const num = (v, d = 2) => v.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d});
+const sgn = (v, d = 2) => (v >= 0 ? "+" : "") + num(v, d);
+const thDate = ms => { const d = new Date(ms); return `${d.getDate()} ${MON[d.getMonth()]}`; };
+const when = ms => ms ? new Date(ms).toLocaleString("th-TH", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "ยังไม่เคย";
 const fail = e => { $("err").textContent = e.message || String(e); };
-let unsub = [];
+const arrow = up => `<svg width=14 height=14 viewBox="0 0 24 24" fill=none stroke="${up ? C.up : C.down}" stroke-width=2.5 stroke-linecap=round stroke-linejoin=round>${up ? '<path d="M12 19V5M5 12l7-7 7 7"/>' : '<path d="M12 5v14M5 12l7 7 7-7"/>'}</svg>`;
+let books = {}, range = 30, unsub = [];
 
-// Equity as one polyline, the same picture dashboard.spark draws.
-function spark(curve, w = 760, h = 170, pad = 28) {
-  if (curve.length < 2) return '<p class=muted>waiting for the second step…</p>';
-  const ys = curve.map(p => p.equity), lo = Math.min(...ys), hi = Math.max(...ys);
-  const span = (hi - lo) || hi * 1e-6 || 1, n = ys.length - 1;
-  const y = e => (h - pad - (e - lo) / span * (h - 2 * pad)).toFixed(1);
-  const pts = ys.map((e, i) => `${(pad + i / n * (w - 2 * pad)).toFixed(1)},${y(e)}`).join(" ");
-  const cls = ys[n] >= ys[0] ? "up" : "down";
-  return `<svg viewBox="0 0 ${w} ${h}" class="chart ${cls}" role=img aria-label="equity ${ys[0].toFixed(2)} to ${ys[n].toFixed(2)} USDT">
-    <line x1=${pad} y1=${y(ys[0])} x2=${w - pad} y2=${y(ys[0])} class=zero />
-    <polyline points="${pts}"/>
-    <text x=${pad} y=16 class=lbl>${hi.toFixed(2)}</text><text x=${pad} y=${h - 6} class=lbl>${lo.toFixed(2)}</text></svg>`;
+// ── charts: the same picture the design draws, from live data ──────────
+function ticks(lo, hi, n) {
+  const span = hi - lo || 1; let step = 10 ** Math.floor(Math.log10(span / n));
+  for (const m of [1, 2, 5, 10]) if (span / (step * m) <= n) { step *= m; break; }
+  const a = Math.floor(lo / step) * step, out = [];
+  for (let v = a; v <= hi + step; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+function lineChart(series, w = 880, h = 300, [t, r, b, l] = [16, 90, 36, 56]) {
+  const all = series.flatMap(s => s.pts.map(p => p.v));
+  if (all.length < 2) return '<p class=muted>รอข้อมูลก้าวที่สอง…</p>';
+  const tk = ticks(Math.min(...all), Math.max(...all), 4), lo = tk[0], hi = tk[tk.length - 1];
+  const t0 = Math.min(...series.map(s => s.pts[0].t)), t1 = Math.max(...series.map(s => s.pts[s.pts.length - 1].t));
+  const X = ts => l + (t1 > t0 ? (ts - t0) / (t1 - t0) : 0) * (w - l - r), Y = v => t + (hi - v) / (hi - lo) * (h - t - b);
+  let o = `<svg class=chart viewBox="0 0 ${w} ${h}" role=img>`;
+  for (const v of tk) o += `<line x1=${l} y1=${Y(v).toFixed(1)} x2=${w - r} y2=${Y(v).toFixed(1)} stroke="${C.grid}"/><text x=${l - 10} y=${(Y(v) + 4).toFixed(1)} text-anchor=end font-size=11 fill="${C.mut}">${num(v, 0)}</text>`;
+  for (let i = 0; i < 5; i++) { const ts = t0 + (t1 - t0) * i / 4; o += `<text x=${X(ts).toFixed(1)} y=${h - 12} text-anchor=middle font-size=11 fill="${C.mut}">${thDate(ts)}</text>`; }
+  for (const s of series) {
+    const pts = s.pts.map(p => `${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`);
+    o += `<path d="M${X(s.pts[0].t).toFixed(1)},${Y(lo).toFixed(1)} L${pts.join(" L")} L${X(s.pts[s.pts.length - 1].t).toFixed(1)},${Y(lo).toFixed(1)} Z" fill="${s.color}" fill-opacity=0.10/>`;
+    o += `<polyline points="${pts.join(" ")}" fill=none stroke="${s.color}" stroke-width=2 stroke-linejoin=round stroke-linecap=round/>`;
+  }
+  for (const s of series) {
+    const p = s.pts[s.pts.length - 1], x = X(p.t).toFixed(1), y = Y(p.v);
+    o += `<circle cx=${x} cy=${y.toFixed(1)} r=6 fill="${C.surf}"/><circle cx=${x} cy=${y.toFixed(1)} r=4 fill="${s.color}"/><text x=${(+x + 12).toFixed(1)} y=${(y + 4).toFixed(1)} font-size=12 font-weight=600 fill="${C.ink}">${num(p.v, 0)}</text>`;
+  }
+  return o + "</svg>";
+}
+function barChart(vals, labels, w = 880, h = 220, bar = 20, [t, r, b, l] = [14, 16, 30, 56], every = 1) {
+  if (!vals.length) return '<p class=muted>ยังไม่มีข้อมูล</p>';
+  let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  const tk = ticks(lo, hi, 3); lo = Math.min(tk[0], lo); hi = Math.max(tk[tk.length - 1], hi);
+  const slot = (w - l - r) / vals.length, Y = v => t + (hi - v) / (hi - lo) * (h - t - b), y0 = Y(0);
+  let o = `<svg class=chart viewBox="0 0 ${w} ${h}" role=img>`;
+  for (const v of tk) if (v >= lo && v <= hi) o += `<line x1=${l} y1=${Y(v).toFixed(1)} x2=${w - r} y2=${Y(v).toFixed(1)} stroke="${v ? C.grid : C.axis}"/><text x=${l - 10} y=${(Y(v) + 4).toFixed(1)} text-anchor=end font-size=11 fill="${C.mut}">${v ? sgn(v, 0) : "0"}</text>`;
+  const bw = Math.min(bar, slot - 4);
+  vals.forEach((v, i) => {
+    const x = l + slot * i + (slot - bw) / 2, y = Y(v), rr = Math.min(4, Math.abs(y0 - y)), s = v >= 0 ? 1 : 0;
+    const d = v >= 0
+      ? `M${x.toFixed(1)},${y0.toFixed(1)} V${(y + rr).toFixed(1)} a${rr},${rr} 0 0 1 ${rr},-${rr} H${(x + bw - rr).toFixed(1)} a${rr},${rr} 0 0 1 ${rr},${rr} V${y0.toFixed(1)} Z`
+      : `M${x.toFixed(1)},${y0.toFixed(1)} V${(y - rr).toFixed(1)} a${rr},${rr} 0 0 0 ${rr},${rr} H${(x + bw - rr).toFixed(1)} a${rr},${rr} 0 0 0 ${rr},-${rr} V${y0.toFixed(1)} Z`;
+    o += `<path d="${d}" fill="${v >= 0 ? C.up : C.down}"/>`;
+    if (i % every === 0) o += `<text x=${(x + bw / 2).toFixed(1)} y=${h - 10} text-anchor=middle font-size=11 fill="${C.mut}">${esc(labels[i])}</text>`;
+  });
+  let k = 0; vals.forEach((v, i) => { if (Math.abs(v) > Math.abs(vals[k])) k = i; });
+  if (vals[k]) o += `<text x=${(l + slot * k + slot / 2).toFixed(1)} y=${(Y(vals[k]) + (vals[k] >= 0 ? -8 : 16)).toFixed(1)} text-anchor=middle font-size=11 font-weight=600 fill="${C.ink}">${sgn(vals[k], 0)}</text>`;
+  return o + "</svg>";
 }
 
-function card(b) {
-  const ret = b.return_pct || 0, cls = ret >= 0 ? "up" : "down";
-  const held = Object.entries(b.held || {}).map(([s, [u, e]]) =>
-    `<tr><td>${esc(s)}</td><td class=n>${u.toFixed(4)}</td><td class=n>${e.toPrecision(6)}</td></tr>`).join("");
-  return `<div class=card><h2>${esc(b.title)}</h2>
-    <div><span class=equity>${(b.equity || 1000).toFixed(2)}<small>USDT</small></span><span class="ret ${cls}">${ret >= 0 ? "+" : ""}${ret.toFixed(2)}%</span></div>
-    <p class=meta>${b.steps || 0} steps · max drawdown ${(b.max_drawdown_pct || 0).toFixed(2)}% · ${b.scored || 0} coins scored
-    · last ${esc(b.reason || "")} step ${when(b.updated)}</p>
-    ${spark(b.curve || [])}
-    <table><tr><th>coin</th><th class=n>units</th><th class=n>entry</th></tr>
-    ${held || '<tr><td colspan=3 class=muted>nothing held</td></tr>'}</table></div>`;
+// ── arithmetic over the books' equity curves ───────────────────────────
+const at = (curve, ts) => { let v = null; for (const p of curve) { if (p.ts > ts) break; v = p.equity; } return v; };
+function totalCurve() {
+  const cs = Object.values(books).map(b => b.curve || []).filter(c => c.length);
+  if (!cs.length) return [];
+  const stamps = [...new Set(cs.flatMap(c => c.map(p => p.ts)))].sort((a, b) => a - b);
+  // a book that has not stepped yet is still worth its starting cash
+  return stamps.map(ts => ({ts, equity: cs.reduce((s, c) => s + (at(c, ts) ?? START), 0)}));
+}
+const dayKey = ts => new Date(ts).toLocaleDateString("sv-SE");           // YYYY-MM-DD, local
+const monKey = ts => dayKey(ts).slice(0, 7), yrKey = ts => dayKey(ts).slice(0, 4);
+function lastPer(curve, keyOf) {                                         // ordered [key, last equity]
+  const m = new Map(); for (const p of curve) m.set(keyOf(p.ts), p.equity); return [...m];
+}
+function pnlSince(curve, keyOf, base) {           // last equity minus the last equity of the previous period
+  if (!curve.length) return [0, 0];
+  const per = lastPer(curve, keyOf), key = keyOf(Date.now());
+  const idx = per.findIndex(([k]) => k === key);
+  const prev = idx > 0 ? per[idx - 1][1] : idx === 0 ? base : per[per.length - 1][1];
+  const last = curve[curve.length - 1].equity;
+  return [idx < 0 ? 0 : last - prev, idx < 0 ? 0 : (last - prev) / prev * 100];
+}
+function periodBars(curve, keyOf, n, base, label) {
+  const per = lastPer(curve, keyOf).slice(-n - 1);
+  const out = [];
+  for (let i = 0; i < per.length; i++) {
+    const prev = i ? per[i - 1][1] : (per.length > n ? null : base);
+    if (prev != null) out.push({k: per[i][0], v: per[i][1] - prev});
+  }
+  return {vals: out.map(x => x.v), labels: out.map(x => label(x.k))};
 }
 
+// ── render ───────────────────────────────────────────────────────────
+function tile(id, [pnl, pct], since) {
+  $(id).innerHTML = `${sgn(pnl)}<small>USDT</small>`;
+  $(id + "-d").innerHTML = `${arrow(pnl >= 0)}<b>${sgn(pct)}%</b><span class=muted>${since}</span>`;
+}
+function render() {
+  const names = ORDER.filter(n => books[n]);
+  const total = totalCurve(), base = START * Math.max(1, Object.keys(books).length);
+  const last = total.length ? total[total.length - 1].equity : base;
+  $("total").textContent = num(last);
+  const ret = (last - base) / base * 100;
+  $("total-delta").innerHTML = total.length
+    ? `<span class=dot style="background:${ret >= 0 ? C.up : C.down}"></span><b>${sgn(ret)}%</b><span class=muted>จากเงินตั้งต้น ${num(base, 0)} USDT · ${thDate(total[0].ts)} – ${thDate(last && total[total.length - 1].ts)}</span>`
+    : `<span class=muted>ยังไม่มีก้าวแรก กดเริ่ม หรือก้าวหนึ่งครั้ง</span>`;
+  tile("t-day", pnlSince(total, dayKey, base), "เทียบเมื่อวาน");
+  tile("t-mon", pnlSince(total, monKey, base), "เทียบเดือนก่อน");
+  tile("t-yr", pnlSince(total, yrKey, base), "เทียบปีก่อน");
+
+  const since = range ? Date.now() - range * 86400e3 : 0;
+  const series = names.map(n => ({name: books[n].title, color: COLOR[n], pts: (books[n].curve || []).filter(p => p.ts >= since).map(p => ({t: p.ts, v: p.equity}))})).filter(s => s.pts.length);
+  $("legend").innerHTML = names.map(n => `<span><i style="background:${COLOR[n]}"></i>${esc(books[n].title)}</span>`).join("");
+  $("line").innerHTML = lineChart(series);
+  const d = periodBars(total, dayKey, 30, base, k => thDate(new Date(k + "T00:00").getTime()));
+  $("daily").innerHTML = barChart(d.vals, d.labels, 880, 220, 20, [14, 16, 30, 56], Math.max(1, Math.ceil(d.vals.length / 5)));
+  const m = periodBars(total, monKey, 12, base, k => MON[+k.slice(5) - 1]);
+  $("monthly").innerHTML = barChart(m.vals, m.labels, 400, 220, 18, [14, 8, 30, 50]);
+
+  $("books").innerHTML = names.map(n => { const b = books[n], r = b.return_pct || 0; return `<div class="card book">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class=dot style="background:${COLOR[n]};border-radius:3px;width:12px;height:12px"></span><b>${esc(b.title)}</b><span class=sub>ก้าวล่าสุด ${when(b.updated)}${b.reason === "manual" ? " (กดเอง)" : ""}</span></div>
+    <div style="display:flex;align-items:baseline;gap:12px"><span class=v>${num(b.equity ?? START)}</span><b>${sgn(r)}%</b></div>
+    <div class=kv><div><div>ขาดทุนสูงสุด</div><div>-${num(b.max_drawdown_pct || 0)}%</div></div><div><div>จำนวนก้าว</div><div>${b.steps || 0}</div></div><div><div>ถือครอง</div><div>${Object.keys(b.held || {}).length} เหรียญ</div></div></div>
+  </div>`; }).join("") || '<div class=card><p class=muted style="margin:0">ยังไม่มีสมุดบัญชี</p></div>';
+
+  const rows = names.flatMap(n => Object.entries(books[n].held || {}).map(([sym, [units, entry]]) => {
+    const px = (books[n].marks || {})[sym] ?? entry; return {sym, n, units, entry, px, val: units * px, pnl: (px / entry - 1) * 100};
+  }));
+  const tot = rows.reduce((s, r) => s + r.val, 0);
+  $("hold-sub").textContent = rows.length ? `${rows.length} ตำแหน่ง · มูลค่ารวม ${num(tot)} USDT · ราคาจาก Binance TH ณ ก้าวล่าสุด` : "ทั้งสองสมุดถือเงินสด";
+  $("rows").innerHTML = rows.sort((a, b) => b.val - a.val).map(r => { const c = r.sym.replace(/USDT$/, ""); return `<tr>
+    <td class=k><span class=coin>${esc(c.slice(0, 2))}</span>${esc(c)}<span class=muted style="font-weight:400">/USDT</span></td>
+    <td><span class=dot style="background:${COLOR[r.n]};border-radius:2px;width:10px;height:10px;margin-right:8px"></span>${esc(books[r.n].title)}</td>
+    <td class=n>${num(r.units, 4)}</td><td class=n>${r.entry.toPrecision(6).replace(/\.?0+$/, "")}</td><td class=n style="color:var(--ink)">${r.px.toPrecision(6).replace(/\.?0+$/, "")}</td>
+    <td class=n style="color:var(--ink)">${num(r.val)}</td>
+    <td class="n k"><span class=dot style="background:${r.pnl >= 0 ? C.up : C.down};margin-right:6px"></span>${sgn(r.pnl)}%</td>
+    <td><span class=meter><i style="width:${(r.val / tot * 100).toFixed(0)}%"></i></span>${num(r.val / tot * 100, 1)}%</td></tr>`; }).join("")
+    || '<tr><td colspan=8 class=muted>ไม่มีเหรียญที่ถืออยู่</td></tr>';
+}
+
+// ── wiring ───────────────────────────────────────────────────────────
 function watch() {
   unsub = [
     ctl.onSnapshot(d => {
       const s = d.data() || {};
       $("pill").classList.toggle("on", !!s.running);
-      $("pill-txt").textContent = s.running ? "Running" : "Stopped";
+      $("pill-txt").textContent = (s.running ? "กำลังทำงาน" : "หยุดอยู่") + " · ก้าวล่าสุด " + when(s.last_step);
       $("start").disabled = !!s.running; $("stop").disabled = !s.running;
-      $("sched").textContent = `every 12 h · last step ${when(s.last_step)}`;
     }, fail),
-    db.collection("books").onSnapshot(q => {
-      const docs = q.docs.map(d => d.data());
-      $("books").innerHTML = docs.length ? docs.map(card).join("")
-        : '<p class=muted>No book yet. Press Start, or run one step now.</p>';
-    }, fail),
+    db.collection("books").onSnapshot(q => { books = {}; q.forEach(d => { books[d.id] = d.data(); }); render(); }, fail),
   ];
 }
-
-$("signin").onclick = () => firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider())
-  .catch(e => { $("login-err").textContent = e.message; });
+$("ranges").onclick = e => {
+  const c = e.target.closest(".chip"); if (!c) return;
+  range = +c.dataset.r; [...$("ranges").children].forEach(x => x.classList.toggle("on", x === c)); render();
+};
+$("signin").onclick = () => firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => { $("login-err").textContent = e.message; });
 $("signout").onclick = () => firebase.auth().signOut();
 $("start").onclick = () => ctl.set({running: true}, {merge: true}).catch(fail);
 $("stop").onclick = () => ctl.set({running: false}, {merge: true}).catch(fail);
 $("step").onclick = async () => {
-  $("step").disabled = true; $("step").textContent = "Stepping… (a few minutes)"; $("err").textContent = "";
+  $("step").disabled = true; $("step").textContent = "กำลังก้าว… (หลายนาที)"; $("err").textContent = "";
   try { await firebase.functions().httpsCallable("step_now")(); } catch (e) { fail(e); }
-  $("step").disabled = false; $("step").textContent = "Run one step now";
+  $("step").disabled = false; $("step").textContent = "ก้าวหนึ่งครั้ง";
 };
 firebase.auth().onAuthStateChanged(u => {
   unsub.forEach(f => f()); unsub = [];

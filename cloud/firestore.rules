@@ -5,7 +5,7 @@ service cloud.firestore {
     // Google. Put your own address in OWNER_EMAIL before deploying. Nobody
     // else, signed in or not, can read a single document.
     function owner() {
-      return request.auth != null && request.auth.token.email == "OWNER_EMAIL";
+      return request.auth != null && request.auth.token.email == "siriwatwattana51@gmail.com";
     }
     match /control/{doc}  { allow read, write: if owner(); }
     match /books/{book}   { allow read: if owner(); allow write: if false; }

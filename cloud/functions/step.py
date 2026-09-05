@@ -151,6 +151,7 @@ def step(state, st, bars, prices, now=None):
     curve = state.get("curve", []) + [{"ts": now, "equity": equity}]
     doc = {**summary(curve), "title": st["title"], "cash": cash, "holdings": holdings,
            "held": {s: list(v) for s, v in held.items()}, "curve": curve,
+           "marks": {s: prices[s] for s in held},      # so the page can value each coin
            "picks": picks, "scored": len(sc), "updated": now}
     return doc, [dict(zip(("ts", "side", "symbol", "units", "price", "fee"), f))
                  for f in fills]

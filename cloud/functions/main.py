@@ -24,15 +24,16 @@ RUN = dict(timeout_sec=1800, memory=options.MemoryOption.MB_512)
 def run(reason):
     db = firestore.client()
     bars, prices = step.market()
+    now = int(time.time() * 1000)          # one stamp for both books, so curves line up
     for st in step.STRATEGIES:
         ref = db.document(f"books/{st['name']}")
-        doc, fills = step.step(ref.get().to_dict(), st, bars, prices)
+        doc, fills = step.step(ref.get().to_dict(), st, bars, prices, now=now)
         ref.set({**doc, "reason": reason})
         for f in fills:
             ref.collection("fills").add(f)
         print(f"{st['title']} ({reason}): equity {doc['equity']:.2f}, "
               f"holding {', '.join(doc['picks']) or 'nothing'}")
-    db.document("control/state").set({"last_step": int(time.time() * 1000)}, merge=True)
+    db.document("control/state").set({"last_step": now}, merge=True)
 
 
 @scheduler_fn.on_schedule(schedule="every 12 hours", **RUN)

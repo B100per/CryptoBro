@@ -69,6 +69,7 @@ assert step.breadth(mkt) == 2 / 5, "two of five above yesterday's close"
 volmom, chart = step.STRATEGIES[1], step.STRATEGIES[0]
 doc, fills = step.step(None, volmom, mkt, px, now=1)
 assert doc["picks"] == ["UPUSDT"] and set(doc["held"]) == {"UPUSDT"}
+assert doc["marks"] == {"UPUSDT": px["UPUSDT"]}, "the page values coins from marks"
 assert 990 < doc["equity"] < 1000 and doc["cash"] >= 0 and doc["steps"] == 1
 assert [f["side"] for f in fills] == ["BUY"] and fills[0]["symbol"] == "UPUSDT"
 

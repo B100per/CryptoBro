@@ -7,6 +7,8 @@ cd "$(dirname "$0")"
 for f in book.py features.py regime.py signals.py; do cp "../../$f" .; done
 echo "copied: book features regime signals"
 if [ ! -d venv ]; then
-  python3 -m venv venv && venv/bin/pip install -q -r requirements.txt
+  python -m venv venv
+  PIP=venv/bin/pip; [ -x "$PIP" ] || PIP=venv/Scripts/pip.exe   # Windows layout
+  "$PIP" install -q -r requirements.txt
   echo "venv created"
 fi
