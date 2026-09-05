@@ -5,6 +5,7 @@ runs the same rule against prices it has never seen, one step at a time, and
 keeps the record.
 
     python3 paper.py --step      # one rebalance, run this on a schedule
+    python3 paper.py --mark      # record equity at current prices, no trading
     python3 paper.py --status    # portfolio and equity so far
     python3 paper.py --reset     # start a fresh run
 
@@ -12,6 +13,7 @@ State lives in paper.db, deliberately separate from data.db: the collector
 holds long write locks during a backfill and this must never wait on it.
 """
 import json
+import os
 import sqlite3
 import sys
 import time
@@ -20,7 +22,10 @@ import urllib.request
 import notify
 from features import load
 
-DB = "paper.db"
+# PAPER_DB lets a short experiment run in its own file. Pointing a 1-minute
+# observation run at the 12-hourly forward test would overwrite the only
+# evidence we have that no backtest can retroactively flatter.
+DB = os.environ.get("PAPER_DB", "paper.db")
 # Not mode=ro: a read-only connection cannot create the -shm file a WAL
 # database needs, so it fails to open while the collector is writing.
 DATA_DB = "data.db"
@@ -69,6 +74,23 @@ def scores(quote="USDT"):
         if sym.endswith(quote):
             out[sym] = v["score"]
     return out, table
+
+
+def mark(c, now=None):
+    """Value the portfolio at current prices without trading.
+
+    Watching a position for half an hour is worth doing; paying a round trip
+    every minute to do it is not. This records the curve and touches nothing.
+    """
+    now = now or int(time.time() * 1000)
+    px = prices()
+    bal = cash(c)
+    holdings = sum(u * px[s] for s, u, _, _ in c.execute("SELECT * FROM positions")
+                   if s in px)
+    c.execute("INSERT OR REPLACE INTO equity VALUES (?,?,?,?)",
+              (now, bal, holdings, bal + holdings))
+    c.commit()
+    return {"equity": bal + holdings, "cash": bal, "holdings": holdings}
 
 
 def step(c, now=None):
@@ -151,6 +173,14 @@ def main():
         print(json.dumps({k: v for k, v in s.items() if k != "positions"}, indent=2))
         for sym, units, entry in s.get("positions", []):
             print(f"  {sym:<14} {units:>16.8f} @ {entry}")
+        return
+
+    if "--mark" in sys.argv:
+        r = mark(c)
+        s = status(c)
+        print(f"{time.strftime('%H:%M:%S')} equity={r['equity']:.4f} "
+              f"cash={r['cash']:.2f} holdings={r['holdings']:.4f} "
+              f"({s['return_pct']:+.3f}%)")
         return
 
     r = step(c)
