@@ -56,12 +56,33 @@ terms stay near zero until the collector has a few hours of history.
 
 ## Account
 
+API key: enable Futures only, never withdrawal, restrict to your IP.
+
+Never put the key in a repo file. Store it as an environment variable, owned
+by whoever runs the process.
+
+**Local testing:**
+
 ```bash
 export BINANCE_KEY=... BINANCE_SECRET=...
 python3 binance_client.py    # testnet unless BINANCE_LIVE=1
 ```
 
-API key: enable Futures only, never withdrawal, restrict to your IP.
+**On the VPS:** `install.sh` creates `/etc/cryptobro.env` (root-only,
+`chmod 600`), and the systemd unit loads it automatically. Edit it as root:
+
+```bash
+sudo nano /etc/cryptobro.env
+```
+
+```
+BINANCE_KEY=...
+BINANCE_SECRET=...
+```
+
+Then `sudo systemctl restart cryptobro` to pick it up. The collector itself
+never reads these — they're only needed once `binance_client.py` is wired
+into an execution step.
 
 ## Tests
 

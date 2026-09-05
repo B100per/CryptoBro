@@ -21,6 +21,7 @@ chown -R "$SVC_USER:$SVC_USER" "$DIR"
 systemctl stop cryptobro 2>/dev/null || true
 sudo -u "$SVC_USER" python3 "$DIR/collector.py" --backfill
 
+[ -f /etc/cryptobro.env ] || { touch /etc/cryptobro.env; chmod 600 /etc/cryptobro.env; }
 install -m 644 "$DIR/deploy/cryptobro.service" /etc/systemd/system/cryptobro.service
 systemctl daemon-reload
 systemctl enable --now cryptobro

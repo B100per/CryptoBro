@@ -7,6 +7,8 @@ Wants=network-online.target
 Type=simple
 User=cryptobro
 WorkingDirectory=/opt/cryptobro
+# holds BINANCE_KEY / BINANCE_SECRET / BINANCE_LIVE, root-only (chmod 600), never in git
+EnvironmentFile=-/etc/cryptobro.env
 ExecStart=/usr/bin/python3 -u /opt/cryptobro/collector.py
 Restart=always
 RestartSec=60
