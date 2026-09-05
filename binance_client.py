@@ -16,12 +16,34 @@ import hashlib
 import hmac
 import json
 import os
+import sys
 import time
 import urllib.parse
 import urllib.request
 
 TESTNET = "https://testnet.binancefuture.com"
 LIVE = "https://fapi.binance.com"
+
+HINTS = {
+    -2015: "key is for the wrong environment (testnet keys only work on testnet, "
+           "and vice versa), or Futures is not enabled on it, or your IP is not whitelisted",
+    -2014: "malformed API key: check for a stray space or newline in BINANCE_KEY",
+    -1022: "signature rejected: BINANCE_SECRET does not match BINANCE_KEY",
+    -1021: "your system clock is off; sync it and retry",
+}
+
+
+class BinanceError(Exception):
+    def __init__(self, status, body, path):
+        try:
+            code = json.loads(body).get("code")
+            msg = json.loads(body).get("msg", body)
+        except ValueError:
+            code, msg = None, body
+        hint = HINTS.get(code)
+        super().__init__(f"{path} -> HTTP {status} code={code} {msg}"
+                         + (f"\n  hint: {hint}" if hint else ""))
+        self.status, self.code = status, code
 
 
 class Binance:
@@ -44,8 +66,13 @@ class Binance:
         req = urllib.request.Request(
             url, data=None if method == "GET" else qs.encode(),
             headers={"X-MBX-APIKEY": self.key}, method=method)
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return json.load(r)
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            # Binance puts the real reason in the body; without this every failure
+            # is an opaque "HTTP Error 401" and you cannot tell key from IP from clock.
+            raise BinanceError(e.code, e.read().decode(errors="replace"), path) from None
 
     def balance(self):
         return [b for b in self.call("/fapi/v2/balance") if float(b["balance"]) > 0]
@@ -68,6 +95,14 @@ class Binance:
 
 if __name__ == "__main__":
     b = Binance()
-    print("LIVE" if b.live else "TESTNET", b.base)
-    print("balance:", b.balance())
-    print("positions:", b.positions())
+    env = "LIVE" if b.live else "TESTNET"
+    print(env, b.base)
+    try:
+        print("balance:", b.balance())
+        print("positions:", b.positions())
+    except BinanceError as e:
+        print(f"FAILED: {e}")
+        other = "live" if not b.live else "testnet"
+        print(f"  note: this key must be one you created on {env.lower()}. "
+              f"Keys from {other} are rejected here.")
+        sys.exit(1)

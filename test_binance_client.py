@@ -10,3 +10,13 @@ assert qs.endswith("&signature=c8db56825ae71d6d79447849e617115f4a920fa2acdcab2b0
 assert Binance(key="x", secret="y", live=False).base == TESTNET
 assert Binance(key="x", secret="y", live=True).base == LIVE
 print("ok")
+
+from binance_client import BinanceError
+
+e = BinanceError(401, '{"code":-2015,"msg":"Invalid API-key, IP, or permissions for action."}', "/fapi/v2/balance")
+assert e.code == -2015 and e.status == 401
+assert "wrong environment" in str(e)          # the hint has to reach the user
+
+plain = BinanceError(502, "<html>bad gateway</html>", "/fapi/v1/order")
+assert plain.code is None and "bad gateway" in str(plain)   # non-JSON body must not crash
+print("ok")
