@@ -107,6 +107,20 @@ THB budget is ten slots and no more. Coins already held that still rank are
 left alone; ones that no longer rank are sold, unless the holding is dust
 below the pair minimum.
 
+## Circuit breaker
+
+`risk.py` halts buying for the rest of the UTC day once account equity drops
+`DAILY_DRAWDOWN_LIMIT` from where it started the day. Selling is never blocked.
+The trip is sticky, and the day's anchor is written to `risk_state.json` so a
+restart does not forget it.
+
+```bash
+python3 risk.py    # today's anchor, drawdown and trip state
+```
+
+Ported from the Alpaca bot in `../Trading_bot`, minus the equities-specific
+parts: PDT limits, end-of-day flush and market hours do not apply to crypto.
+
 ## Risk cap
 
 `MAX_NOTIONAL_USDT` is a hard ceiling on gross position notional. With no value

@@ -1,5 +1,9 @@
+import os, tempfile
+import risk
 from binance_client import RiskError
 from binance_th import BinanceTH
+
+risk.STATE_FILE = os.path.join(tempfile.mkdtemp(), "risk_state.json")
 
 def stub(cap, holdings_thb, step="0.01", min_notional=100.0):
     c = BinanceTH(key="k", secret="s", max_notional=cap)
@@ -8,6 +12,7 @@ def stub(cap, holdings_thb, step="0.01", min_notional=100.0):
     c.exposure = lambda quote="THB": holdings_thb
     c.price = lambda s: 3400.0
     c.call = lambda *a, **k: {"placed": k}
+    c.equity = lambda quote="THB": holdings_thb + 10_000
     return c
 
 def buy(c, qty):
@@ -35,6 +40,15 @@ assert "below the 100 minimum" in buy(stub(5000, 0), 0.02)
 c = stub(5000, 0, step="0.01")
 assert buy(c, 0.119) is None
 assert c.round_qty("SOLTHB", 0.119) == 0.11
+
+# a tripped circuit breaker blocks buying but never selling
+import json
+json.dump({"date": risk._today(), "anchor": 1000.0, "tripped": True},
+          open(risk.STATE_FILE, "w"))
+c = stub(5000, 0)
+assert "circuit breaker" in buy(c, 1.0)
+c.order("SOLTHB", "SELL", 1.0)          # exits must stay open
+os.remove(risk.STATE_FILE)
 
 # SELL reduces exposure, so the cap must not block an exit
 c = stub(100, 100000)

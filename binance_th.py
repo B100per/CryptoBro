@@ -15,6 +15,7 @@ import sqlite3
 import sys
 import urllib.request
 
+import risk
 from binance_client import Binance, RiskError, load_env
 
 BASE = "https://api.binance.th"
@@ -28,6 +29,8 @@ class BinanceTH(Binance):
         self.base = BASE
         cap = os.environ.get(CAP_ENV) if max_notional is None else max_notional
         self.max_notional = float(cap) if cap not in (None, "") else None
+        self.drawdown_limit = float(os.environ.get("DAILY_DRAWDOWN_LIMIT",
+                                                   risk.DEFAULT_LIMIT))
 
     def filters(self, symbol):
         if self._filters is None:
@@ -70,6 +73,10 @@ class BinanceTH(Binance):
                 continue  # not tradable against this quote; ignore rather than guess
         return total
 
+    def equity(self, quote="THB"):
+        """Everything the account is worth, in the quote currency."""
+        return self.balances().get(quote, 0.0) + self.exposure(quote)
+
     def order(self, symbol, side, qty, client_id=None, price=None, quote="THB"):
         """Market order, refused if it would take holdings past the cap.
 
@@ -89,6 +96,10 @@ class BinanceTH(Binance):
                             f"{floor:.0f} minimum for this pair")
 
         if side.upper() == "BUY":
+            # Same reasoning as the cap: one guard here covers every caller.
+            allowed, why, _ = risk.check(self.equity(quote), self.drawdown_limit)
+            if not allowed:
+                raise RiskError(why)
             after = self.exposure(quote) + notional
             if after > self.max_notional:
                 raise RiskError(f"{symbol}: would take holdings to {after:.2f} {quote}, "
@@ -121,4 +132,8 @@ if __name__ == "__main__":
     c = BinanceTH()
     print("balances:", c.balances())
     print("exposure (THB):", f"{c.exposure():.2f}")
+    print("equity (THB):", f"{c.equity():.2f}")
     print("cap:", c.max_notional if c.max_notional is not None else f"{CAP_ENV} not set")
+    allowed, why, st = risk.check(c.equity(), c.drawdown_limit)
+    print("circuit breaker:", "ok" if allowed else why,
+          f"(anchor {st['anchor']:.2f}, drawdown {st['drawdown']:.2%})")

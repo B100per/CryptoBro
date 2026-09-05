@@ -3,3 +3,4 @@ __pycache__/
 *.db-journal
 .env
 logs/
+risk_state.json
