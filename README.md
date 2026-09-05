@@ -75,6 +75,23 @@ python3 binance_client.py --diagnose # which environment does this key belong to
 An `export` in the shell, or systemd's `EnvironmentFile`, still overrides the
 file. On the VPS use `/etc/cryptobro.env` (root-only) rather than a repo file.
 
+## Binance TH (spot)
+
+`binance_th.py` executes on the Thai account. It is a different exchange from
+binance.com: host `api.binance.th`, `/api/v1` paths, and **spot only**. No
+futures means no funding, no open interest, no long/short ratio, and **no way
+to short**. Signals still come from binance.com futures data, which the
+collector reads without a key; only execution happens here.
+
+```bash
+python3 binance_th.py            # balances, current exposure, cap
+python3 binance_th.py --symbols  # pairs listed here that we have signals for
+```
+
+`MAX_NOTIONAL_THB` caps holdings in baht. SELL is never blocked by the cap,
+since exiting can only reduce exposure. Minimum order is 100 THB on every THB
+pair, and about 5 USDT on the USDT pairs.
+
 ## Risk cap
 
 `MAX_NOTIONAL_USDT` is a hard ceiling on gross position notional. With no value
