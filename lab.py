@@ -31,6 +31,7 @@ def rules():
         yield f"vol-scaled mom {lb // 288}d", signals.vol_scaled_momentum(lb), 0.0, lb
     yield "reversal 1d", signals.reversal(288), 0.0, 288
     yield "breakout 1w", signals.breakout(2016), -0.02, 2016
+    yield "volume surge 1h", signals.volume_surge(12, 288), 0.0, 300
 
 
 def main():

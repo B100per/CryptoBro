@@ -78,6 +78,37 @@ def breakout(lookback):
     return fn
 
 
+def volume_surge(recent=12, baseline=288, min_ratio=3.0):
+    """Buy what is suddenly being bought: volume far above its own normal, with
+    price already moving up on it.
+
+    A quiet coin that nobody trades is not interesting. A quiet coin whose
+    turnover just went 3x with price rising is — that is what a crowd arriving
+    looks like. Everything is measured against the coin's OWN history, so a
+    thin book can qualify by waking up rather than by being big.
+
+    The known failure: this is also exactly what the top of a pump looks like.
+    A backtest fills at the close; a real order on a thin book pays the spread
+    and moves the price, so judge this rule with a volume floor as well.
+    """
+    def fn(rows, i, window=None):
+        if i < recent + baseline:
+            return None
+        base = sorted(r[5] * r[4] for r in rows[i - recent - baseline:i - recent])
+        norm = base[len(base) // 2]
+        if norm <= 0:
+            return None
+        now = sum(r[5] * r[4] for r in rows[i - recent + 1:i + 1]) / recent
+        ratio = now / norm
+        r = _returns(rows, i, recent)
+        if r is None or r <= 0 or ratio < min_ratio:
+            return -1.0          # not buyable; keeps the coin out of the ranking
+        # rising on a surge: rank by how much of both
+        return ratio * r
+    fn.__name__ = f"surge_{recent}_{baseline}"
+    return fn
+
+
 def demo():
     up = [(j * 300000, 100 + j, 101 + j, 99 + j, 100 + j, 10.0) for j in range(300)]
     down = [(j * 300000, 400 - j, 401 - j, 399 - j, 400 - j, 10.0) for j in range(300)]
@@ -96,6 +127,18 @@ def demo():
     assert breakout(100)(up, 200) > -0.02
     flat_then_drop = up[:250] + [(r[0], 90, 90, 90, 90, 10.0) for r in up[250:]]
     assert breakout(100)(flat_then_drop, 290) < 0
+    # Surge: same climb, but the last hour's volume is 5x the norm — that ranks;
+    # the same climb at normal volume does not, and a surge on a FALLING price
+    # is never bought.
+    quiet = [(j * 300000, 100 + j, 101 + j, 99 + j, 100 + j, 10.0) for j in range(400)]
+    loud = quiet[:388] + [(t, o, h, l, c, 50.0) for t, o, h, l, c, _ in quiet[388:]]
+    dump = quiet[:388] + [(t, 100, 100, 90, 90 - k, 50.0)
+                          for k, (t, *_r) in enumerate(quiet[388:])]
+    surge = volume_surge(recent=12, baseline=288, min_ratio=3.0)
+    assert surge(loud, 399) > 0, surge(loud, 399)
+    assert surge(quiet, 399) < 0, "normal volume must not qualify"
+    assert surge(dump, 399) < 0, "a surge while falling is a dump, never a buy"
+    assert surge(loud, 100) is None, "not enough history must be skipped"
     print("ok")
 
 
