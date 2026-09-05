@@ -60,3 +60,26 @@ assert m["max_drawdown_pct"] < 100.0
 m, curve, trades, final = run({"FLAT": pinned}, top=1, rebalance=12, fee=0.0)
 assert final > 0 and all(e > 0 for _, e in curve)
 print("ok")
+
+from backtest import hold_return, robust
+
+# The do-nothing baseline: one asset doubling means +100% before fees.
+doubling = series([100 * (1.00035 ** i) for i in range(WINDOW + 120)])
+h = hold_return({"AAAUSDT": doubling}, fee=0.0)
+assert abs(h - (doubling[-1][4] / doubling[0][4] - 1) * 100) < 1e-9, h
+
+# Stablecoin pairs are not part of the market you could have held instead,
+# and a non-quote pair is not comparable at all.
+assert hold_return({"USDPUSDT": doubling}, fee=0.0) == 0.0
+assert hold_return({"BTCTHB": doubling}, fee=0.0) == 0.0
+
+# Fees make holding worse, never better.
+assert hold_return({"AAAUSDT": doubling}, fee=0.01) < h
+
+# robust() must actually vary the start time, not run the same thing five times.
+rows = robust({"AAAUSDT": doubling, "BBBUSDT": rising}, offsets=4,
+              top=1, rebalance=48, fee=0.0)
+assert len(rows) == 4
+assert [off for off, _, _ in rows] == [0, 12, 24, 36]
+assert len({m["steps"] for _, m, _ in rows}) > 1, "shifting the start changed nothing"
+print("ok")
