@@ -2,7 +2,7 @@
 
     python3 dashboard.py                     # write dashboard.html once
     python3 dashboard.py --watch             # rewrite every 10s
-    python3 dashboard.py --db live30.db --lab lab.out
+    python3 dashboard.py --db live30.db --lab lab.out,lab_lean.out
 
 Reads whatever exists and says so when something is missing, rather than
 failing: the lab takes an hour and the page has to be useful before it lands.
@@ -62,9 +62,16 @@ def render(db, lab_path):
     pct = (last - start) / start * 100 if start else 0.0
     age = f"{(time.time() * 1000 - rows[-1][0]) / 60000:.1f} min ago" if rows else "-"
 
-    lab = ""
-    if lab_path and os.path.exists(lab_path):
-        lab = open(lab_path).read().strip()
+    # Several result files, shown one after another with their names as
+    # dividers: the lab runs in pieces and each piece is its own file.
+    parts = []
+    for path in (lab_path or "").split(","):
+        path = path.strip()
+        if path and os.path.exists(path):
+            text = open(path).read().strip()
+            if text:
+                parts.append(f"── {path} ──\n{text}")
+    lab = "\n\n".join(parts)
     lab_body = (f"<pre>{html.escape(lab)}</pre>" if lab.count("\n") > 1 else
                 '<p class="muted">still loading 9.9M bars and running 90 backtests. '
                 'Nothing to show until the first row lands.</p>')

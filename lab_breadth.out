@@ -1,0 +1,3 @@
+chart signal, min_quote_vol=2,000, breadth over 24h
+ breadth  rebal   worst%   median%    best%  trades
+     0.0    144    -19.9      37.6    309.8     151

@@ -1,0 +1,7 @@
+rebalance=432 (36h), 3 start times, excess over buy-and-hold
+question                rule   floor breadth   worst%   median%    best%  trades
+   A               chart     500     0.0    -27.7     117.0    136.7      86
+   A               chart   2,000     0.0     -9.8     152.0    187.9      56
+   A               chart  10,000     0.0    -26.0      40.8     55.1      32
+   B               chart   2,000     0.4     -9.2      67.7    191.1      37
+   B               chart   2,000     0.5     -6.7      65.5    138.8      23
