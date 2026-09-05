@@ -56,33 +56,39 @@ terms stay near zero until the collector has a few hours of history.
 
 ## Account
 
-API key: enable Futures only, never withdrawal, restrict to your IP.
+API key: enable **Futures** only, never withdrawal, restrict to your IP.
+Spot permission is not enough; every endpoint here is `fapi`.
 
-Never put the key in a repo file. Store it as an environment variable, owned
-by whoever runs the process.
-
-**Local testing:**
+Credentials live in `.env`, which is gitignored:
 
 ```bash
-export BINANCE_KEY=... BINANCE_SECRET=...
-python3 binance_client.py    # testnet unless BINANCE_LIVE=1
+cp .env.example .env    # then fill it in
+python3 binance_client.py            # testnet unless BINANCE_LIVE=1
+python3 binance_client.py --diagnose # which environment does this key belong to?
 ```
 
-**On the VPS:** `install.sh` creates `/etc/cryptobro.env` (root-only,
-`chmod 600`), and the systemd unit loads it automatically. Edit it as root:
+An `export` in the shell, or systemd's `EnvironmentFile`, still overrides the
+file. On the VPS use `/etc/cryptobro.env` (root-only) rather than a repo file.
 
-```bash
-sudo nano /etc/cryptobro.env
-```
+## Risk cap
 
-```
-BINANCE_KEY=...
-BINANCE_SECRET=...
-```
+`MAX_NOTIONAL_USDT` is a hard ceiling on gross position notional. With no value
+set, `order()` refuses to send anything. Every order is also checked against the
+symbol's own `LOT_SIZE` and `MIN_NOTIONAL` filters before it leaves the machine.
 
-Then `sudo systemctl restart cryptobro` to pick it up. The collector itself
-never reads these — they're only needed once `binance_client.py` is wired
-into an execution step.
+The cap is the second line of defence. The first is the futures wallet balance:
+transfer in only what you are willing to lose, because nothing in this repo can
+lose more than what is in that wallet.
+
+Minimum order size is set by Binance, not by this code:
+
+| symbol | min notional |
+|---|---|
+| BTCUSDT | 50 USDT |
+| ETHUSDT | 20 USDT |
+| most alts | 5 USDT |
+
+`close_all()` is the kill switch and flattens every open position at market.
 
 ## Tests
 
