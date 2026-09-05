@@ -7,6 +7,7 @@ it is a coin flip you have already called.
 
     python3 lab.py                 # every signal, two rebalance periods
     python3 lab.py --vol 50000     # only coins with real volume behind them
+    python3 lab.py --only reversal,breakout   # rerun a subset, append to lab.out
 
 Read the columns, not one number. A signal worth keeping is positive across
 start times AND across rebalance periods. One tall result beside two poor ones
@@ -34,12 +35,15 @@ def rules():
 
 def main():
     vol = float(sys.argv[sys.argv.index("--vol") + 1]) if "--vol" in sys.argv else 0.0
+    only = sys.argv[sys.argv.index("--only") + 1].split(",") if "--only" in sys.argv else None
     bars = load_bars(sqlite3.connect("data.db"), None, "th_klines")
     print(f"symbols={len(bars)} bars={sum(len(v) for v in bars.values()):,} "
           f"min_quote_vol={vol:,.0f}")
     head = f"{'signal':>18}{'rebal':>7}{'worst%':>9}{'median%':>10}{'best%':>9}{'trades':>8}"
     print("\nexcess over buy-and-hold, across " + str(OFFSETS) + " start times\n" + head)
     for name, fn, floor, window in rules():
+        if only and not any(o in name for o in only):
+            continue
         for reb in REBALANCES:
             rows = robust(bars, offsets=OFFSETS, top=5, rebalance=reb, fee=0.001,
                           min_score=floor, score_fn=fn, window=window,
