@@ -7,6 +7,7 @@ matters, "would this rule have made money", rather than a different one.
     python3 backtest.py                    # all symbols in data.db
     python3 backtest.py --th               # only what Binance TH lists
     python3 backtest.py --fee 0.001 --top 5 --rebalance 12
+    python3 backtest.py --robust --stop 0.10   # sell at -10% between rebalances
 
 Scores use price structure only. The positioning terms (funding, open
 interest, top-trader divergence) cannot be backtested yet: Binance serves just
@@ -47,11 +48,14 @@ def chart_signal(rows, i, window=WINDOW):
 
 def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0,
         score_fn=chart_signal, window=WINDOW, min_quote_vol=0.0,
-        min_breadth=0.0, breadth_bars=288, exit_fn=None):
+        min_breadth=0.0, breadth_bars=288, exit_fn=None, stop_loss=0.0):
     """Equal-weight the top `top` scorers, rebalancing every `rebalance` bars.
 
     Cash and holdings are tracked separately, so equity is always a sum of two
     things you can point at rather than a running figure that drifts.
+
+    stop_loss: sell a holding at the first 5m close below (1 - stop_loss) of
+    its average cost, checked every bar BETWEEN rebalances. 0 means never.
     """
     stamps = sorted({ts for rows in bars.values() for ts, *_ in rows})
     index = {sym: {r[0]: i for i, r in enumerate(rows)} for sym, rows in bars.items()}
@@ -61,9 +65,29 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
     entry = {}       # symbol -> price paid, for per-trade pnl
     last = {}        # symbol -> last price seen, so a holding is never valued at zero
     curve, trades = [], []
+    prev = None      # the last rebalance stamp, so the stop scan covers what lies between
 
     for step in range(WINDOW, len(stamps), rebalance):
         now = stamps[step]
+        # The stop-loss lives between rebalances: walk every bar since the
+        # last one and close anything that fell through its floor, at that
+        # bar's close. A rebalance twelve hours later cannot see a crash that
+        # happened and half-recovered in between; this can.
+        if stop_loss and prev is not None:
+            for sym in [s for s in units if s in index]:
+                floor = entry[sym] / units[sym] * (1 - stop_loss)
+                lo, hi = index[sym].get(prev), index[sym].get(now)
+                if lo is None or hi is None:
+                    continue
+                for r in bars[sym][lo + 1:hi]:
+                    if r[4] <= floor:
+                        value = units.pop(sym) * r[4]
+                        cash += value * (1 - fee)
+                        last[sym] = r[4]
+                        trades.append({"symbol": sym, "pnl": value * (1 - fee) - entry.pop(sym),
+                                       "stop": True})
+                        break
+        prev = now
         prices, scores = {}, {}
         for sym, rows in bars.items():
             i = index[sym].get(now)
@@ -233,7 +257,8 @@ def main():
     bars = load_bars(db, symbols, table)
     print(f"table={table} symbols={len(bars)} bars={sum(len(v) for v in bars.values()):,}")
     kw = dict(top=arg("--top", 5, int), rebalance=arg("--rebalance", 12, int),
-              fee=arg("--fee", 0.001), min_score=arg("--min-score", 0.5))
+              fee=arg("--fee", 0.001), min_score=arg("--min-score", 0.5),
+              stop_loss=arg("--stop", 0.0))
     if "--robust" in sys.argv:
         rows = robust(bars, offsets=arg("--offsets", 5, int), **kw)
         print(f"\n{'start':>8}{'return%':>10}{'hold%':>9}{'excess%':>10}"

@@ -33,6 +33,7 @@ from dashboard import spark
 STATE_FILE = os.environ.get("CONTROL_STATE", "control_state.json")
 TOKEN = os.environ.get("CONTROL_TOKEN", "")
 DEFAULT_INTERVAL = 43200          # 12h, the cadence the forward test runs at
+MARK_EVERY = 300                  # 5 min: value the books at live prices, trading nothing
 LOG = deque(maxlen=60)
 
 # The rules the lab kept: worst case across start times positive, on coins a
@@ -101,18 +102,37 @@ def run_step(reason):
     return out
 
 
+def run_mark():
+    """Value every book at live prices, no trading: the curve between steps.
+    Not logged; 288 lines a day would bury the steps in the activity panel."""
+    with STEP_LOCK:
+        for st in STRATEGIES:
+            try:
+                paper.mark(paper.db(st["db"]))
+            except Exception as e:
+                log(f"{st['name']} mark failed: {e}")
+
+
 def tick(now=None):
-    """Run a step if one is due. Called every few seconds by the scheduler."""
+    """Run a step if one is due, else a mark if one is due. Called every few
+    seconds by the scheduler. Returns True only when a step ran."""
     now = now or time.time()
     s = load_state()
-    if not s["running"] or now < s["next_step"]:
+    if not s["running"]:
         return False
-    run_step("schedule")
-    s = load_state()
-    s["last_step"] = now
-    s["next_step"] = now + s["interval"]
-    save_state(s)
-    return True
+    if now >= s["next_step"]:
+        run_step("schedule")
+        s = load_state()
+        s["last_step"] = now
+        s["next_step"] = now + s["interval"]
+        s["next_mark"] = now + MARK_EVERY
+        save_state(s)
+        return True
+    if now >= s.get("next_mark", 0):
+        run_mark()
+        s["next_mark"] = now + MARK_EVERY
+        save_state(s)
+    return False
 
 
 def scheduler():
@@ -243,8 +263,9 @@ def page_main(sid):
 
 <div class=card style="margin-top:18px"><h2>Activity</h2><pre>{logs}</pre></div>
 <footer>Two rules run side by side on the same schedule, each in its own paper book, so the market
-can say which one the backtest described. Buys and sells are rows in a local database; the exchange
-client is not loaded by this process, so it cannot place an order even if asked. Refreshes every 20 s.</footer>
+can say which one the backtest described. Between steps the books are valued at live prices every
+5 minutes, trading nothing, so the curve is real time. Buys and sells are rows in a local database; the
+exchange client is not loaded by this process, so it cannot place an order even if asked. Refreshes every 20 s.</footer>
 </div>"""
 
 

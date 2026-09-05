@@ -9,6 +9,7 @@ os.environ["CONTROL_TOKEN"] = "s3cret"
 import control
 control.STATE_FILE = os.environ["CONTROL_STATE"]
 control.TOKEN = "s3cret"
+control.MARK_EVERY = 60          # the test's interval is 100; a mark must fall between steps
 for k, st in enumerate(control.STRATEGIES):
     st["db"] = os.path.join(d, f"book{k}.db")
 paper.breadth = lambda *a, **k: 1.0
@@ -22,13 +23,20 @@ paper.TOP = 2
 # when due and then waits a full interval.
 assert control.tick(now=1000) is False
 control.set_running(True)
-s = control.load_state(); s["interval"] = 100; s["next_step"] = 1000; control.save_state(s)
+s = control.load_state(); s["interval"] = 100; s["next_step"] = s["next_mark"] = 1000; control.save_state(s)
 assert control.tick(now=999) is False
 assert control.tick(now=1000) is True
 assert control.load_state()["next_step"] == 1100
 assert control.tick(now=1050) is False
 # every book stepped once, each in its own file
 assert all(paper.status(paper.db(x["db"]))["steps"] == 1 for x in control.STRATEGIES)
+# between steps, a mark every MARK_EVERY seconds values the books without trading
+before = [paper.db(x["db"]).execute("SELECT count(*) FROM fills").fetchone()[0] for x in control.STRATEGIES]
+assert control.tick(now=1000 + control.MARK_EVERY) is False, "a mark is not a step"
+assert all(paper.status(paper.db(x["db"]))["steps"] == 2 for x in control.STRATEGIES), "marked"
+assert control.tick(now=1000 + control.MARK_EVERY + 10) is False
+assert all(paper.status(paper.db(x["db"]))["steps"] == 2 for x in control.STRATEGIES), "not yet due again"
+assert [paper.db(x["db"]).execute("SELECT count(*) FROM fills").fetchone()[0] for x in control.STRATEGIES] == before, "a mark trades nothing"
 assert len({x["db"] for x in control.STRATEGIES}) == len(control.STRATEGIES)
 control.set_running(False)
 assert control.tick(now=5000) is False, "stopped must mean stopped"

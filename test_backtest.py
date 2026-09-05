@@ -153,3 +153,24 @@ same, _, t_same, _ = run({"AUSDT": steady, "BUSDT": rocket}, top=1, rebalance=48
                          exit_fn=lambda rows, i: True)
 assert same["trades"] == plain["trades"] and abs(same["return_pct"] - plain["return_pct"]) < 1e-9
 print("ok")
+
+# A stop-loss acts BETWEEN rebalances. A coin that crashes 30% a few bars
+# after being bought and fully recovers by the next rebalance is invisible to
+# the plain rule (equity untouched) and is sold near the bottom by the stop,
+# so the stop must end lower here and leave a trade marked as a stop.
+from backtest import run, series, WINDOW  # noqa: F811
+n = WINDOW + 60
+prices = [100 * (1.002 ** i) for i in range(n)]
+for k in range(WINDOW + 2, WINDOW + 8):
+    prices[k] *= 0.7
+dip = series(prices)
+_, _, plain, final_plain = run({"UP": dip}, top=1, rebalance=12, fee=0.0)
+_, _, stopped, final_stop = run({"UP": dip}, top=1, rebalance=12, fee=0.0, stop_loss=0.10)
+assert not any(t.get("stop") for t in plain)
+assert any(t.get("stop") for t in stopped), "the crash must trigger the stop"
+assert final_stop < final_plain, (final_stop, final_plain)
+# and a stop that is never hit changes nothing
+_, _, _, same = run({"UP": rising}, top=1, rebalance=12, fee=0.0, stop_loss=0.10)
+_, _, _, base = run({"UP": rising}, top=1, rebalance=12, fee=0.0)
+assert same == base
+print("ok")
