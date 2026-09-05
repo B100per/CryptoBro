@@ -10,3 +10,9 @@ dashboard.html
 control_state.json
 *.db-shm
 *.db-wal
+cloud/functions/venv/
+cloud/functions/book.py
+cloud/functions/features.py
+cloud/functions/regime.py
+cloud/functions/signals.py
+cloud/functions/.env

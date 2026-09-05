@@ -48,7 +48,7 @@ The old launchd paper agent is unloaded; the panel is the only scheduler.
 ```bash
 git clone https://github.com/B100per/CryptoBro.git && cd CryptoBro
 cp /path/from/old/mac/.env .          # or recreate, see below — never commit it
-for f in test_*.py signals.py book.py; do python3 $f; done     # all should print ok
+for f in test_*.py signals.py book.py cloud/functions/test_step.py; do python3 $f; done  # all print ok
 python3 collector.py --once           # small data.db to start with
 CONTROL_TOKEN=$(grep CONTROL_TOKEN .env | cut -d= -f2) python3 control.py
 open http://127.0.0.1:8787
@@ -61,20 +61,41 @@ open http://127.0.0.1:8787
 A full 90-day backfill (`collector.py --history 90`) takes ~1 h 20 and 1.2 GB.
 The backtests need it; the paper books do not (they read the last ~2016 bars).
 
-## Firebase (in progress, branch merged as skeleton)
+## Firebase (code done, not yet deployed)
 
-Project: `cryptobro-591d7`. Plan: Hosting serves the panel, a scheduled Python
-Cloud Function runs the step every 12 h fetching klines live from binance.th,
+Project: `cryptobro-591d7`. Hosting serves the panel, a scheduled Python Cloud
+Function runs the step every 12 h fetching klines live from binance.th,
 Firestore holds the books, rules restrict everything to one Google account.
 
-Done: `cloud/firebase.json`, `.firebaserc`, `firestore.rules`, `functions/requirements.txt`,
-`functions/build.sh`. **Not done:** `functions/main.py` (the step), `public/index.html`
-(the page), tests. Both are ~150 lines each; the pure logic they need is in `book.py`.
+- `cloud/functions/step.py`: the step, no Firebase in it. Same ranking as
+  `paper.py` (liquidity, breadth, chart, volmom) over bars held in memory;
+  arithmetic from `book.py`. `test_step.py` runs it with a fake exchange.
+- `cloud/functions/main.py`: `paper_step` (Cloud Scheduler, every 12 h, only
+  while `control/state.running`) and `step_now` (callable, owner only).
+- `cloud/public/index.html`: Google sign-in, live books from Firestore,
+  Start / Stop / Run one step now. Loads the SDK from Hosting's reserved
+  `/__/firebase/` URLs, so no config is pasted in; it only works served by
+  Firebase Hosting (or `firebase serve`), not from a file.
+- Firestore: `control/state` {running, last_step}; `books/{chart,volmom}`
+  {cash, held, curve, equity, return_pct, ...}; `books/*/fills/*`.
 
-Before it can deploy, the owner must: enable the Blaze plan (Functions need it;
-free tier covers this load), `firebase login`, put their email in
-`firestore.rules` (OWNER_EMAIL), paste the web app config into the page.
-Deploy is `cd cloud && functions/build.sh && firebase deploy`.
+One known difference: the local chart book adds the positioning terms for
+the ~20 symbols the futures collector covers (`features.load` reads the
+positioning table); the backtest and the cloud book score price only, which
+is what the lab measured. Compare the two books with that in mind.
+
+Before it can deploy, the owner must, once:
+1. enable the Blaze plan (Functions need it; the free tier covers this load);
+2. `firebase login`;
+3. in the console: Authentication → enable the Google provider; Project
+   settings → add a Web app (Hosting's `init.js` needs one to exist);
+4. put the owner's address in `cloud/firestore.rules` (OWNER_EMAIL) and in
+   `cloud/functions/.env` as `OWNER_EMAIL=...` (gitignored);
+5. have Python 3.12 on the deploying machine (the runtime in `firebase.json`).
+
+Then: `cd cloud && functions/build.sh && firebase deploy`. The first deploy
+asks to enable Cloud Scheduler and Artifact Registry; say yes. The books start
+at 1000 USDT in the cloud; the local sqlite books are not migrated.
 Research (backtests, lab) stays local: it needs the 1.2 GB database.
 
 ## Conventions
@@ -100,5 +121,6 @@ Research (backtests, lab) stays local: it needs the 1.2 GB database.
 | `control.py` | web panel + scheduler for both paper books |
 | `dashboard.py`, `progress.py` | self-refreshing HTML views |
 | `trade.py`, `binance_th.py`, `binance_client.py`, `risk.py` | the only path to real orders |
+| `cloud/` | Firebase: `functions/step.py` + `main.py` (the 12 h step), `public/index.html` (the panel) |
 | `deploy/` | systemd units + `install.sh` for a VPS; `control.service` for the panel |
 | `lab_*.out` | measured results, see above |

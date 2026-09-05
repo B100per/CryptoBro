@@ -1,0 +1,151 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>CryptoBro</title>
+<style>
+:root{color-scheme:light dark;--bg:#f6f6f2;--fg:#1a1a18;--mut:#74746c;--line:#e0e0d8;
+ --card:#fff;--up:#0d7a45;--down:#b53a22;--accent:#1f5fbf;--accent-fg:#fff;--warn:#8a6d00;--warn-bg:#fff6d6}
+@media(prefers-color-scheme:dark){:root{--bg:#121211;--fg:#ebebe5;--mut:#8f8f86;--line:#2a2a26;
+ --card:#1b1b19;--up:#3fc07f;--down:#ef6d50;--accent:#5b8ee6;--accent-fg:#0b1220;--warn:#f0c94c;--warn-bg:#2a2410}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+ font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Inter,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:32px 20px 48px}
+header{display:flex;align-items:center;gap:14px;margin-bottom:26px}
+header h1{font-size:17px;margin:0;letter-spacing:.02em}
+.badge{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;
+ padding:4px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.badge.warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}
+.pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+.pill i{width:9px;height:9px;border-radius:50%;background:var(--mut);display:inline-block}
+.pill.on i{background:var(--up);box-shadow:0 0 0 4px color-mix(in srgb,var(--up) 22%,transparent)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+.card h2{margin:0 0 12px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+.equity{font-size:44px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;line-height:1.1}
+.equity small{font-size:15px;color:var(--mut);font-weight:500;margin-left:6px}
+.ret{font-size:20px;font-weight:650;margin-left:12px}
+.up{color:var(--up)}.down{color:var(--down)}
+.meta{color:var(--mut);font-size:13px;margin:6px 0 0}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:0;align-items:center}
+button{font:inherit;font-weight:600;padding:11px 18px;border-radius:10px;border:1px solid var(--line);
+ background:var(--card);color:var(--fg);cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+button.danger{color:var(--down)}
+button:disabled{opacity:.45;cursor:default}
+.chart{width:100%;height:auto;margin-top:14px}
+.chart polyline{fill:none;stroke:var(--up);stroke-width:2;stroke-linejoin:round}
+.chart.down polyline{stroke:var(--down)}
+.zero{stroke:var(--line);stroke-dasharray:3 4}
+.lbl{fill:var(--mut);font-size:11px;font-family:ui-monospace,monospace}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:13.5px}
+th{color:var(--mut);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+td.n{text-align:right;font-family:ui-monospace,monospace;font-size:12.5px}
+.muted{color:var(--mut)}
+.login{max-width:380px;margin:12vh auto 0}
+footer{margin-top:26px;color:var(--mut);font-size:12.5px}
+[hidden]{display:none!important}
+</style>
+
+<div class="wrap login" id=login>
+  <div class=card>
+    <header><h1>CryptoBro</h1><span class="badge warn">paper only</span></header>
+    <p class=muted>One Google account may see the books and press the buttons.</p>
+    <button class=primary id=signin>Sign in with Google</button>
+    <p class=down id=login-err></p>
+  </div>
+</div>
+
+<div class=wrap id=main hidden>
+  <header><h1>CryptoBro</h1><span class="badge warn">paper only · no real money</span>
+    <span class=pill id=pill><i></i><span id=pill-txt>Stopped</span></span></header>
+  <div class=card style="margin-bottom:18px">
+    <div class=actions>
+      <button class=primary id=start>Start</button>
+      <button class=danger id=stop>Stop</button>
+      <button id=step>Run one step now</button>
+      <span class=meta id=sched></span>
+      <button id=signout style="margin-left:auto">Sign out</button>
+    </div>
+    <p class=down id=err></p>
+  </div>
+  <div class=grid id=books></div>
+  <footer>Two rules run side by side on the same 12-hour clock, each in its own paper book, so the
+  market can say which one the backtest described. A step is a Cloud Function that reads the
+  Binance TH board and writes rows to Firestore; no exchange key exists on this project, so it
+  cannot place an order even if asked.</footer>
+</div>
+
+<script src="/__/firebase/10.14.1/firebase-app-compat.js"></script>
+<script src="/__/firebase/10.14.1/firebase-auth-compat.js"></script>
+<script src="/__/firebase/10.14.1/firebase-firestore-compat.js"></script>
+<script src="/__/firebase/10.14.1/firebase-functions-compat.js"></script>
+<script src="/__/firebase/init.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const db = firebase.firestore(), ctl = db.doc("control/state");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const when = ms => ms ? new Date(ms).toLocaleString([], {day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit"}) : "never";
+const fail = e => { $("err").textContent = e.message || String(e); };
+let unsub = [];
+
+// Equity as one polyline, the same picture dashboard.spark draws.
+function spark(curve, w = 760, h = 170, pad = 28) {
+  if (curve.length < 2) return '<p class=muted>waiting for the second step…</p>';
+  const ys = curve.map(p => p.equity), lo = Math.min(...ys), hi = Math.max(...ys);
+  const span = (hi - lo) || hi * 1e-6 || 1, n = ys.length - 1;
+  const y = e => (h - pad - (e - lo) / span * (h - 2 * pad)).toFixed(1);
+  const pts = ys.map((e, i) => `${(pad + i / n * (w - 2 * pad)).toFixed(1)},${y(e)}`).join(" ");
+  const cls = ys[n] >= ys[0] ? "up" : "down";
+  return `<svg viewBox="0 0 ${w} ${h}" class="chart ${cls}" role=img aria-label="equity ${ys[0].toFixed(2)} to ${ys[n].toFixed(2)} USDT">
+    <line x1=${pad} y1=${y(ys[0])} x2=${w - pad} y2=${y(ys[0])} class=zero />
+    <polyline points="${pts}"/>
+    <text x=${pad} y=16 class=lbl>${hi.toFixed(2)}</text><text x=${pad} y=${h - 6} class=lbl>${lo.toFixed(2)}</text></svg>`;
+}
+
+function card(b) {
+  const ret = b.return_pct || 0, cls = ret >= 0 ? "up" : "down";
+  const held = Object.entries(b.held || {}).map(([s, [u, e]]) =>
+    `<tr><td>${esc(s)}</td><td class=n>${u.toFixed(4)}</td><td class=n>${e.toPrecision(6)}</td></tr>`).join("");
+  return `<div class=card><h2>${esc(b.title)}</h2>
+    <div><span class=equity>${(b.equity || 1000).toFixed(2)}<small>USDT</small></span><span class="ret ${cls}">${ret >= 0 ? "+" : ""}${ret.toFixed(2)}%</span></div>
+    <p class=meta>${b.steps || 0} steps · max drawdown ${(b.max_drawdown_pct || 0).toFixed(2)}% · ${b.scored || 0} coins scored
+    · last ${esc(b.reason || "")} step ${when(b.updated)}</p>
+    ${spark(b.curve || [])}
+    <table><tr><th>coin</th><th class=n>units</th><th class=n>entry</th></tr>
+    ${held || '<tr><td colspan=3 class=muted>nothing held</td></tr>'}</table></div>`;
+}
+
+function watch() {
+  unsub = [
+    ctl.onSnapshot(d => {
+      const s = d.data() || {};
+      $("pill").classList.toggle("on", !!s.running);
+      $("pill-txt").textContent = s.running ? "Running" : "Stopped";
+      $("start").disabled = !!s.running; $("stop").disabled = !s.running;
+      $("sched").textContent = `every 12 h · last step ${when(s.last_step)}`;
+    }, fail),
+    db.collection("books").onSnapshot(q => {
+      const docs = q.docs.map(d => d.data());
+      $("books").innerHTML = docs.length ? docs.map(card).join("")
+        : '<p class=muted>No book yet. Press Start, or run one step now.</p>';
+    }, fail),
+  ];
+}
+
+$("signin").onclick = () => firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider())
+  .catch(e => { $("login-err").textContent = e.message; });
+$("signout").onclick = () => firebase.auth().signOut();
+$("start").onclick = () => ctl.set({running: true}, {merge: true}).catch(fail);
+$("stop").onclick = () => ctl.set({running: false}, {merge: true}).catch(fail);
+$("step").onclick = async () => {
+  $("step").disabled = true; $("step").textContent = "Stepping… (a few minutes)"; $("err").textContent = "";
+  try { await firebase.functions().httpsCallable("step_now")(); } catch (e) { fail(e); }
+  $("step").disabled = false; $("step").textContent = "Run one step now";
+};
+firebase.auth().onAuthStateChanged(u => {
+  unsub.forEach(f => f()); unsub = [];
+  $("login").hidden = !!u; $("main").hidden = !u; $("err").textContent = "";
+  if (u) watch();
+});
+</script>
