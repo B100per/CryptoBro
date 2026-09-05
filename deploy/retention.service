@@ -1,0 +1,8 @@
+[Unit]
+Description=CryptoBro retention rollup
+
+[Service]
+Type=oneshot
+User=cryptobro
+WorkingDirectory=/opt/cryptobro
+ExecStart=/usr/bin/python3 /opt/cryptobro/retention.py --days 45

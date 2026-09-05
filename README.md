@@ -163,6 +163,20 @@ Same rule, real prices, imaginary money, and prices the rule has never seen.
 State is in `paper.db`, kept apart from `data.db` so a long collector backfill
 can never block it.
 
+## Retention
+
+5m bars for 384 pairs is ~140k rows a day, roughly 3 GB a year. Nobody needs
+five-minute resolution from eight months ago, so old bars are rolled into 1h,
+which is 12x smaller and answers the same long-horizon question.
+
+```bash
+python3 retention.py --dry-run   # what would be rolled
+python3 retention.py --days 45   # roll, delete, VACUUM
+```
+
+Runs daily on the VPS via `retention.timer`. Backtests past the 5m window read
+the rolled tables: `python3 backtest.py --table th_klines_1h`.
+
 ## Circuit breaker
 
 `risk.py` halts buying for the rest of the UTC day once account equity drops

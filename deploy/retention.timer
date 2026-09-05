@@ -1,0 +1,9 @@
+[Unit]
+Description=Roll old 5m candles into hourly bars
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

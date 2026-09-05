@@ -23,8 +23,11 @@ sudo -u "$SVC_USER" python3 "$DIR/collector.py" --backfill
 
 [ -f /etc/cryptobro.env ] || { touch /etc/cryptobro.env; chmod 600 /etc/cryptobro.env; }
 install -m 644 "$DIR/deploy/cryptobro.service" /etc/systemd/system/cryptobro.service
+install -m 644 "$DIR/deploy/retention.service" /etc/systemd/system/retention.service
+install -m 644 "$DIR/deploy/retention.timer" /etc/systemd/system/retention.timer
 systemctl daemon-reload
 systemctl enable --now cryptobro
+systemctl enable --now retention.timer
 sleep 5
 systemctl --no-pager status cryptobro | head -12
 echo

@@ -23,8 +23,8 @@ BARS_PER_YEAR = 365 * 24 * 12   # 5m bars
 WINDOW = 200                    # bars of history each score is computed on
 
 
-def load_bars(db, symbols=None):
-    q = "SELECT symbol, ts, open, high, low, close, volume FROM klines ORDER BY ts"
+def load_bars(db, symbols=None, table="klines"):
+    q = f"SELECT symbol, ts, open, high, low, close, volume FROM {table} ORDER BY ts"
     out = {}
     for sym, ts, o, h, l, c, v in db.execute(q):
         if symbols and sym not in symbols:
@@ -116,7 +116,8 @@ def metrics(curve, trades, start_equity):
     sharpe = 0.0
     if len(rets) > 1 and statistics.stdev(rets) > 0:
         # rebalance steps, not bars, are the sampling interval of this curve
-        per_year = BARS_PER_YEAR / max(1, (curve[1][0] - curve[0][0]) // 300_000)
+        step_ms = max(1, curve[1][0] - curve[0][0])
+        per_year = 365 * 24 * 3600 * 1000 / step_ms
         sharpe = statistics.mean(rets) / statistics.stdev(rets) * math.sqrt(per_year)
 
     return {
@@ -140,8 +141,10 @@ def main():
         from binance_th import tradable_here
         symbols = set(tradable_here()[0])
 
-    bars = load_bars(db, symbols)
-    print(f"symbols={len(bars)} bars={sum(len(v) for v in bars.values()):,}")
+    table = sys.argv[sys.argv.index("--table") + 1] if "--table" in sys.argv else (
+        "th_klines" if "--th-spot" in sys.argv else "klines")
+    bars = load_bars(db, symbols, table)
+    print(f"table={table} symbols={len(bars)} bars={sum(len(v) for v in bars.values()):,}")
     m, curve, trades, final = run(
         bars, top=arg("--top", 5, int), rebalance=arg("--rebalance", 12, int),
         fee=arg("--fee", 0.001), min_score=arg("--min-score", 0.5))
