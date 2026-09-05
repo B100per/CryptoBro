@@ -1,0 +1,7 @@
+chart @432, floor 2,000, 3 start times, excess over buy-and-hold
+                 exit rule breadth   worst%   median%    best%  trades
+       out of ranks = sell     0.0     -9.8     152.0    187.9      56
+         hold while rising     0.0    -60.0       4.4     36.6      35
+          hold, price only     0.0    -13.6     -11.8      1.9       0
+       out of ranks = sell     0.6      7.4      15.2    137.7      20
+         hold while rising     0.6     -7.4       1.6     12.0      15

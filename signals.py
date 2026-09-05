@@ -126,7 +126,9 @@ def trend_broken(ema_bars=96, flow_bars=12, flow_floor=0.5):
         for j in range(i - ema_bars + 1, i + 1):
             ema += k * (rows[j][4] - ema)
         under = rows[i][4] < ema
-        if len(rows[i]) < 7 or rows[i][6] is None:
+        # No flow data, or flow switched off: price decides alone. (A floor of
+        # 0 used to make "sellers" impossible, so nothing was ever sold.)
+        if flow_floor <= 0 or len(rows[i]) < 7 or rows[i][6] is None:
             return under
         vol = sum(r[5] for r in rows[i - flow_bars + 1:i + 1])
         buy = sum(r[6] or 0.0 for r in rows[i - flow_bars + 1:i + 1])
@@ -179,6 +181,8 @@ def demo():
     assert tb(dip, 199) is False, "buyers still crossing the spread is a dip, not an exit"
     bare = [r[:6] for r in roll]                             # no taker column
     assert tb(bare, 199) is True, "without flow data, price alone decides"
+    price_only = trend_broken(ema_bars=48, flow_bars=12, flow_floor=0.0)
+    assert price_only(dip, 199) is True, "flow off must mean price decides, not never-sell"
     print("ok")
 
 
