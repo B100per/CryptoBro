@@ -5,3 +5,4 @@ __pycache__/
 logs/
 risk_state.json
 paper.db
+progress.html

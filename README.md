@@ -171,6 +171,18 @@ Same rule, real prices, imaginary money, and prices the rule has never seen.
 State is in `paper.db`, kept apart from `data.db` so a long collector backfill
 can never block it.
 
+## Backfill progress
+
+```bash
+python3 progress.py --watch   # rewrite progress.html every 15s
+open progress.html
+```
+
+A long backfill holds a write lock, so the row count cannot be read while it
+runs. The page estimates progress from bytes written and from elapsed time and
+shows both: the gap between them is the error bar. Once the lock clears the
+numbers come from the database and stop being estimates.
+
 ## Retention
 
 5m bars for 384 pairs is ~140k rows a day, roughly 3 GB a year. Nobody needs

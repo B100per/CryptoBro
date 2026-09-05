@@ -115,15 +115,21 @@ def collect_th(db, limit=3, days=None):
     happens to cover leaves 363 unexamined for no reason: these klines are
     public and need no key.
     """
+    symbols = th_symbols()
     total = 0
-    for sym in th_symbols():
+    for n, sym in enumerate(symbols, 1):
         try:
             total += save_klines(db, sym, limit, days=days,
                                  base=TH_BASE, path="/api/v1/klines", table="th_klines")
         except Exception as e:
             print(f"skip th {sym}: {e}", file=sys.stderr)
+        # Commit per symbol. One transaction across all 384 held a write lock for
+        # an hour: nothing else could read the database, and a crash would have
+        # rolled the whole backfill back to nothing.
+        db.commit()
+        if days:
+            print(f"th backfill {n}/{len(symbols)} {sym} rows={total}", flush=True)
         time.sleep(0.05)
-    db.commit()
     return total
 
 
