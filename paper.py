@@ -5,6 +5,8 @@ runs the same rule against prices it has never seen, one step at a time, and
 keeps the record.
 
     python3 paper.py --step      # one rebalance, run this on a schedule
+    python3 paper.py --step --rule volmom --min-vol 2000 --min-score 0
+    python3 paper.py --step --rule chart --breadth 0.6 --min-vol 2000
     python3 paper.py --mark      # record equity at current prices, no trading
     python3 paper.py --status    # portfolio and equity so far
     python3 paper.py --reset     # start a fresh run
@@ -43,8 +45,8 @@ CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
 """
 
 
-def db():
-    c = sqlite3.connect(DB)
+def db(path=None):
+    c = sqlite3.connect(path or DB)
     c.executescript(SCHEMA)
     return c
 
@@ -61,19 +63,70 @@ def prices():
         return {t["symbol"]: float(t["price"]) for t in json.load(r)}
 
 
-def scores(quote="USDT"):
-    """Ranked pairs from the TH board, using whichever kline table has data."""
-    d = sqlite3.connect(DATA_DB, uri=True, timeout=60)
+def _table(d):
     # LIMIT 1, not count(*): counting ten million rows every step to answer
     # "is it empty" is a full table scan for one bit of information.
-    table = "th_klines" if d.execute(
+    return "th_klines" if d.execute(
         "SELECT 1 FROM sqlite_master WHERE name='th_klines'").fetchone() \
         and d.execute("SELECT 1 FROM th_klines LIMIT 1").fetchone() else "klines"
+
+
+def liquid(d, table, min_vol, bars=288):
+    """Symbols whose median quote volume per bar over the last `bars` clears
+    min_vol. Same test the backtest applies, so paper trades the same board."""
+    if not min_vol:
+        return None
+    last = d.execute(f"SELECT max(ts) FROM {table}").fetchone()[0] or 0
+    by = {}
+    for sym, qv in d.execute(f"SELECT symbol, close*volume FROM {table} WHERE ts > ?",
+                             (last - bars * 300000,)):
+        by.setdefault(sym, []).append(qv)
+    return {s for s, v in by.items() if sorted(v)[len(v) // 2] >= min_vol}
+
+
+def scores(quote="USDT", rule="chart", min_vol=0.0):
+    """Ranked pairs from the TH board under one of the rules the lab kept."""
+    from backtest import is_stable_pair
+    d = sqlite3.connect(DATA_DB, uri=True, timeout=60)
+    table = _table(d)
+    keep = liquid(d, table, min_vol)
     out = {}
-    for sym, v in load(d, table=table).items():
-        if sym.endswith(quote):
+    if rule == "chart":
+        for sym, v in load(d, table=table).items():
             out[sym] = v["score"]
+    elif rule == "volmom":
+        from signals import vol_scaled_momentum
+        fn = vol_scaled_momentum(2016)
+        for (sym,) in d.execute(f"SELECT DISTINCT symbol FROM {table}"):
+            rows = d.execute(f"SELECT ts, 0, 0, 0, close, volume FROM {table} "
+                             "WHERE symbol=? ORDER BY ts DESC LIMIT 2017", (sym,)).fetchall()
+            v = fn(rows[::-1], len(rows) - 1)
+            if v is not None:
+                out[sym] = v
+    else:
+        raise ValueError(f"unknown rule {rule!r}")
+    out = {s: v for s, v in out.items()
+           if s.endswith(quote) and not is_stable_pair(s, quote)
+           and (keep is None or s in keep)}
     return out, table
+
+
+def breadth(bars=288, quote="USDT"):
+    """Share of the board above where it was `bars` ago. Below a floor, the
+    step buys nothing: a long-only book's one move in a falling market."""
+    d = sqlite3.connect(DATA_DB, uri=True, timeout=60)
+    table = _table(d)
+    up = tot = 0
+    for (sym,) in d.execute(f"SELECT DISTINCT symbol FROM {table} WHERE symbol LIKE ?",
+                            (f"%{quote}",)):
+        pair = d.execute(f"SELECT close FROM {table} WHERE symbol=? ORDER BY ts DESC "
+                         "LIMIT 1 OFFSET ?", (sym, bars)).fetchone()
+        now = d.execute(f"SELECT close FROM {table} WHERE symbol=? ORDER BY ts DESC LIMIT 1",
+                        (sym,)).fetchone()
+        if pair and now and pair[0] > 0:
+            tot += 1
+            up += now[0] > pair[0]
+    return up / tot if tot else 1.0
 
 
 def mark(c, now=None):
@@ -93,16 +146,19 @@ def mark(c, now=None):
     return {"equity": bal + holdings, "cash": bal, "holdings": holdings}
 
 
-def step(c, now=None):
+def step(c, now=None, rule="chart", breadth_floor=0.0, min_vol=0.0, min_score=None):
     now = now or int(time.time() * 1000)
+    min_score = MIN_SCORE if min_score is None else min_score
     px = prices()
-    sc, table = scores()
+    sc, table = scores(rule=rule, min_vol=min_vol)
     held = {s: (u, e) for s, u, e, _ in c.execute("SELECT * FROM positions")}
 
     holdings = sum(u * px[s] for s, (u, _) in held.items() if s in px)
     equity = cash(c) + holdings
     picks = [s for s, v in sorted(sc.items(), key=lambda kv: -kv[1])
-             if v >= MIN_SCORE and s in px][:TOP]
+             if v >= min_score and s in px][:TOP]
+    if breadth_floor and picks and breadth() < breadth_floor:
+        picks = []
     target = equity / len(picks) if picks else 0.0
 
     bal = cash(c)
@@ -183,7 +239,9 @@ def main():
               f"({s['return_pct']:+.3f}%)")
         return
 
-    r = step(c)
+    arg = lambda n, d, cast=float: cast(sys.argv[sys.argv.index(n) + 1]) if n in sys.argv else d
+    r = step(c, rule=arg("--rule", "chart", str), breadth_floor=arg("--breadth", 0.0),
+             min_vol=arg("--min-vol", 0.0), min_score=arg("--min-score", None))
     print(f"equity={r['equity']:.2f} cash={r['cash']:.2f} holdings={r['holdings']:.2f} "
           f"scored={r['scored']} ({r['table']}) picks={','.join(r['picks']) or '-'}")
     if "--notify" in sys.argv:

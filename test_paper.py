@@ -9,7 +9,7 @@ paper.prices = lambda: dict(PX)
 paper.TOP = 2
 
 def set_scores(d):
-    paper.scores = lambda quote="USDT": (d, "th_klines")
+    paper.scores = lambda quote="USDT", rule="chart", min_vol=0.0: (d, "th_klines")
 
 c = paper.db()
 
@@ -48,6 +48,14 @@ for _, cash_v, _, _ in c.execute("SELECT * FROM equity"):
 
 s = paper.status(c)
 assert s["steps"] == 4 and s["fills"] > 0
+# The breadth floor turns a step into "buy nothing" when the board is falling.
+paper.breadth = lambda *a, **k: 0.3
+set_scores({"AAAUSDT": 2.0, "BBBUSDT": 1.5})
+r = paper.step(c, now=200, breadth_floor=0.6)
+assert r["picks"] == [] and r["holdings"] == 0.0, r
+paper.breadth = lambda *a, **k: 0.9
+r = paper.step(c, now=201, breadth_floor=0.6)
+assert r["picks"], "a rising board must pass the gate"
 print("ok")
 
 # --mark values the portfolio without trading: a price move shows up as equity,
