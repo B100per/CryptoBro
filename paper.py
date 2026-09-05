@@ -56,7 +56,7 @@ def prices():
 
 def scores(quote="USDT"):
     """Ranked pairs from the TH board, using whichever kline table has data."""
-    d = sqlite3.connect(DATA_DB, uri=True, timeout=5)
+    d = sqlite3.connect(DATA_DB, uri=True, timeout=60)
     table = "th_klines" if d.execute(
         "SELECT count(*) FROM sqlite_master WHERE name='th_klines'").fetchone()[0] \
         and d.execute("SELECT count(*) FROM th_klines").fetchone()[0] else "klines"

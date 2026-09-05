@@ -30,12 +30,20 @@ journalctl -u cryptobro -f
 
 ### 24/7 on macOS (launchd)
 
+Three agents: the collector runs continuously, paper trading rebalances hourly,
+retention rolls old bars at 04:30.
+
 ```bash
-cp com.b100per.cryptobro.plist ~/Library/LaunchAgents/
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.b100per.cryptobro.plist
+for j in com.b100per.cryptobro com.b100per.cryptobro.paper com.b100per.cryptobro.retention; do
+  cp $j.plist ~/Library/LaunchAgents/
+  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/$j.plist
+done
 launchctl kickstart -k gui/$(id -u)/com.b100per.cryptobro   # restart after a code change
-launchctl bootout gui/$(id -u)/com.b100per.cryptobro        # stop, once the VPS is collecting
+launchctl bootout gui/$(id -u)/com.b100per.cryptobro        # stop one
 ```
+
+A sleeping Mac leaves gaps: the collector misses those 5m windows permanently,
+and paper trading simply skips the rebalance. Neither corrupts anything.
 
 Tables, both keyed on (ts, symbol) for the top 50 perpetuals by 24h volume:
 
