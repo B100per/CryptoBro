@@ -13,12 +13,28 @@ python3 collector.py --backfill   # one cycle + ~3.5 days of 5m candles
 python3 collector.py              # every 5 min -> data.db
 ```
 
-Runs 24/7 under launchd: `com.b100per.cryptobro.plist`, logs in `logs/`.
+### 24/7 on a VPS (preferred)
+
+A laptop that sleeps leaves gaps in the data. On a Debian/Ubuntu box, as root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/B100per/CryptoBro/main/deploy/install.sh | bash
+```
+
+Installs to `/opt/cryptobro` as a system user, backfills, then enables the
+`cryptobro` systemd unit. Re-run it to deploy a new commit. Logs go to journald:
+
+```bash
+journalctl -u cryptobro -f
+```
+
+### 24/7 on macOS (launchd)
 
 ```bash
 cp com.b100per.cryptobro.plist ~/Library/LaunchAgents/
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.b100per.cryptobro.plist
 launchctl kickstart -k gui/$(id -u)/com.b100per.cryptobro   # restart after a code change
+launchctl bootout gui/$(id -u)/com.b100per.cryptobro        # stop, once the VPS is collecting
 ```
 
 Tables, both keyed on (ts, symbol) for the top 50 perpetuals by 24h volume:

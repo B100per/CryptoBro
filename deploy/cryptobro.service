@@ -1,0 +1,22 @@
+[Unit]
+Description=CryptoBro Binance futures collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cryptobro
+WorkingDirectory=/opt/cryptobro
+ExecStart=/usr/bin/python3 -u /opt/cryptobro/collector.py
+Restart=always
+RestartSec=60
+
+# Only /opt/cryptobro is writable; a bug or a bad dependency cannot touch the rest of the box.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/cryptobro
+
+[Install]
+WantedBy=multi-user.target
