@@ -19,15 +19,7 @@ import sys
 
 from features import chart_read, score
 
-# Pegged against the quote currency, so they cannot trend and must never be
-# bought. One of them, USDP, is what exposed the valuation bug below: a flat
-# price gives zero ATR, chart_read returns None, and the holding vanished.
-STABLES = {"USDC", "USDP", "TUSD", "FDUSD", "USD1", "DAI", "USDE", "RLUSD",
-           "XUSD", "FRAX", "USDT", "BUSD", "PYUSD"}
-
-
-def is_stable_pair(symbol, quote="USDT"):
-    return symbol.endswith(quote) and symbol[: -len(quote)] in STABLES
+from book import STABLES, is_stable_pair   # noqa: F401  (shared with paper.py and the cloud step)
 
 BARS_PER_YEAR = 365 * 24 * 12   # 5m bars
 WINDOW = 200                    # bars of history each score is computed on
