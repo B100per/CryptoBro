@@ -61,7 +61,7 @@ open http://127.0.0.1:8787
 A full 90-day backfill (`collector.py --history 90`) takes ~1 h 20 and 1.2 GB.
 The backtests need it; the paper books do not (they read the last ~2016 bars).
 
-## Firebase (code done, not yet deployed)
+## Firebase (deployed 2026-09-05, https://cryptobro-591d7.web.app)
 
 Project: `cryptobro-591d7`. Hosting serves the panel, a scheduled Python Cloud
 Function runs the step every 12 h fetching klines live from binance.th,
@@ -84,18 +84,15 @@ the ~20 symbols the futures collector covers (`features.load` reads the
 positioning table); the backtest and the cloud book score price only, which
 is what the lab measured. Compare the two books with that in mind.
 
-Before it can deploy, the owner must, once:
-1. enable the Blaze plan (Functions need it; the free tier covers this load);
-2. `firebase login`;
-3. in the console: Authentication → enable the Google provider; Project
-   settings → add a Web app (Hosting's `init.js` needs one to exist);
-4. put the owner's address in `cloud/firestore.rules` (OWNER_EMAIL) and in
-   `cloud/functions/.env` as `OWNER_EMAIL=...` (gitignored);
-5. have Python 3.12 on the deploying machine (the runtime in `firebase.json`).
+Deployed once from this Windows machine: Blaze is on, the Web app is
+registered, `OWNER_EMAIL` is in `cloud/firestore.rules` and in the gitignored
+`cloud/functions/.env`, the runtime is python311 (what was installed), and the
+Artifact Registry cleanup policy is set (images older than a day are deleted).
+Still to do in the console, once: Authentication → Sign-in method → enable
+Google. Until then the page's sign-in button fails.
 
-Then: `cd cloud && functions/build.sh && firebase deploy`. The first deploy
-asks to enable Cloud Scheduler and Artifact Registry; say yes. The books start
-at 1000 USDT in the cloud; the local sqlite books are not migrated.
+Redeploy is `cd cloud && functions/build.sh && firebase deploy --non-interactive`.
+The books start at 1000 USDT in the cloud; the local sqlite books are not migrated.
 Research (backtests, lab) stays local: it needs the 1.2 GB database.
 
 ## Conventions

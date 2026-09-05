@@ -16,3 +16,4 @@ cloud/functions/features.py
 cloud/functions/regime.py
 cloud/functions/signals.py
 cloud/functions/.env
+cloud/.firebase/
