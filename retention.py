@@ -72,7 +72,15 @@ def main():
         print(f"{src}: {rolled:,} bars older than {days}d"
               + (" (dry run)" if dry else f" -> {written:,} hourly bars"))
     if not dry:
-        db.execute("VACUUM")     # DELETE alone frees pages inside the file, not the file
+        # VACUUM rewrites the whole file and so needs it to itself. The collector
+        # writes every 5 minutes and never stops, so the lock is the normal case,
+        # not an error: the rollup above has already freed those pages for reuse
+        # inside the file, only the file on disk stays as big as its high-water mark.
+        try:
+            db.execute("VACUUM")
+        except sqlite3.OperationalError as e:
+            print(f"vacuum skipped ({e}); pages are free for reuse, file not shrunk")
+            return
         after = db.execute("SELECT page_count * page_size FROM pragma_page_count(), "
                            "pragma_page_size()").fetchone()[0]
         print(f"db {before / 1e6:.0f} MB -> {after / 1e6:.0f} MB")
