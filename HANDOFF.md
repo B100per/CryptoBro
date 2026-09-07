@@ -48,7 +48,7 @@ registered by `deploy\windows\install.ps1`, run from logon with no window
 
 | task | does | log |
 |---|---|---|
-| `CryptoBro collector` | `collector.py` forever, restarted a minute after any exit | `logs\collector.log` |
+| `CryptoBro collector` | `collector.py` forever, restarted a minute after any exit; on start it refills any hole since the last TH bar (`heal`, one page a symbol for a 12 h outage) | `logs\collector.log` |
 | `CryptoBro retention` | `retention.py --days 45` daily 04:30 | `logs
 etention.log` |
 | `CryptoBro control` | `control.py` on `127.0.0.1:8787`, token lifted from `.env`; rebalance 36 h, mark + stop-loss every 5 min | `logs\control.log` |
