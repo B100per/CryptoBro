@@ -3,7 +3,7 @@
 Polls funding, open interest, top-trader / global long-short ratios and
 taker buy/sell volume for the top-N perpetuals every 5 minutes, into sqlite.
 
-    python3 collector.py            # run forever
+    python3 collector.py            # run forever; on start, refills any hole since the last bar
     python3 collector.py --once     # one cycle then exit
     python3 collector.py --backfill # one cycle, pulling 1000 candles of price history
     python3 collector.py --history 90  # one cycle, paging back 90 days of candles
@@ -156,6 +156,26 @@ def collect_once(db, kline_limit=3, history_days=None):
     return len(rows)
 
 
+def heal(db, now=None):
+    """On start, refill whatever the last shutdown missed.
+
+    The loop fetches 3 bars per tick, so a hole older than 15 minutes would
+    stay a hole forever: every backtest and score after it would see the gap.
+    Pages back just past the last bar; a 12-hour outage is one page a symbol.
+    Returns the span refilled, in days (0 when there was nothing to do).
+    """
+    now = now or time.time() * 1000
+    last = db.execute("SELECT max(ts) FROM th_klines").fetchone()[0]
+    if not last or now - last < 4 * PERIOD_MS:
+        return 0
+    days = (now - last) / 86_400_000 + 0.01          # a hair past the hole
+    print(f"heal: last bar {(now - last) / 3.6e6:.1f} h ago, refilling {days:.2f} d",
+          flush=True)
+    collect_th(db, days=days)
+    collect_once(db, history_days=days)
+    return days
+
+
 def main():
     db = sqlite3.connect(DB)
     # WAL lets readers work while a write is in flight. Without it the hour-long
@@ -174,6 +194,7 @@ def main():
     if "--once" in sys.argv:
         collect_th(db)
         return collect_once(db)
+    heal(db)
     while True:
         try:
             collect_once(db)
