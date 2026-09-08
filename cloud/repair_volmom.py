@@ -119,8 +119,9 @@ if DRY:
     print("DRY RUN, nothing written. Add --write.")
 else:
     r = rpc("tools/call", {"name": "firestore_update_document", "arguments": {
-        "name": ROOT + "books/volmom", "updateMask": {"fieldPaths": list(fixed)},
-        "fields": {k: enc(v) for k, v in fixed.items()}}})
+        "document": {"name": ROOT + "books/volmom",
+                     "fields": {k: enc(v) for k, v in fixed.items()}},
+        "updateMask": {"fieldPaths": list(fixed)}}})
     ok = "error" not in r and not r["result"].get("isError")
     print("written" if ok else "FAILED", str(r)[:300])
 p.terminate()
