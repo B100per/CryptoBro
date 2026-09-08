@@ -167,7 +167,7 @@ function lineChart(series, w = 880, h = 300, [t, r, b, l] = [16, 90, 36, 56]) {
   for (const s of series) {
     const pts = s.pts.map(p => `${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`);
     o += `<path d="M${X(s.pts[0].t).toFixed(1)},${Y(lo).toFixed(1)} L${pts.join(" L")} L${X(s.pts[s.pts.length - 1].t).toFixed(1)},${Y(lo).toFixed(1)} Z" fill="${s.color}" fill-opacity="0.10"/>`;
-    o += `<polyline points="${pts.join(" ")}" fill=none stroke="${s.color}" stroke-width=2 stroke-linejoin=round stroke-linecap=round/>`;
+    o += `<polyline points="${pts.join(" ")}" fill=none stroke="${s.color}" stroke-width=2 stroke-linejoin=round stroke-linecap="round"/>`;
   }
   for (const s of series) {
     const p = s.pts[s.pts.length - 1], x = X(p.t).toFixed(1), y = Y(p.v);
