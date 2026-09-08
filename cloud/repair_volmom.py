@@ -96,25 +96,40 @@ stops = [r for r in fills if r["side"] == "STOP" and r["symbol"] == "SOPHUSDT"
 net = [r["units"] * r["price"] - r["fee"] for r in stops]
 print("doc marked", f(doc["marked"]), "| SOPH stops absorbed", len(stops),
       "| genuine", f(stops[0]["ts"]), "px", stops[0]["price"])
-cash0 = doc["cash"] - sum(net)
-print("cash left after the rebalance", round(cash0, 4))
-assert -1 < cash0 < 60, "reconstruction does not add up; not writing"
-true_cash = round(cash0 + net[0], 8)
-held = {s: v for s, v in doc["held"].items() if s != "SOPHUSDT"}
-marks = {s: pr for s, pr in doc["marks"].items() if s in held}
-holdings = sum(u * marks[s] for s, (u, _) in held.items())
-watch = [{"ts": pt["ts"],
-          "equity": pt["equity"] - sum(x for r, x in zip(stops[1:], net[1:]) if r["ts"] <= pt["ts"])}
-         for pt in doc["watch"]]
-fixed = {"cash": true_cash, "held": held, "marks": marks, "holdings": holdings,
-         "equity": true_cash + holdings, "watch": watch,
-         "watch_note": "stop-loss sold SOPHUSDT (book repaired 2026-09-09: "
-                       "a merge bug had re-sold it every 5 minutes)"}
-print(f"cash {doc['cash']:.2f} -> {true_cash:.2f} | equity {doc['equity']:.2f} -> "
-      f"{fixed['equity']:.2f} | held {sorted(held)}")
+repaired = "repaired" in doc.get("watch_note", "")
+if repaired:
+    print("book already repaired; only the curve is touched")
+    fixed, watch = {}, list(doc["watch"])
+else:
+    cash0 = doc["cash"] - sum(net)
+    print("cash left after the rebalance", round(cash0, 4))
+    assert -1 < cash0 < 60, "reconstruction does not add up; not writing"
+    true_cash = round(cash0 + net[0], 8)
+    held = {s: v for s, v in doc["held"].items() if s != "SOPHUSDT"}
+    marks = {s: pr for s, pr in doc["marks"].items() if s in held}
+    holdings = sum(u * marks[s] for s, (u, _) in held.items())
+    watch = [{"ts": pt["ts"],
+              "equity": pt["equity"] - sum(x for r, x in zip(stops[1:], net[1:]) if r["ts"] <= pt["ts"])}
+             for pt in doc["watch"]]
+    fixed = {"cash": true_cash, "held": held, "marks": marks, "holdings": holdings,
+             "equity": true_cash + holdings,
+             "watch_note": "stop-loss sold SOPHUSDT (book repaired 2026-09-09: "
+                           "a merge bug had re-sold it every 5 minutes)"}
+    print(f"cash {doc['cash']:.2f} -> {true_cash:.2f} | equity {doc['equity']:.2f} -> "
+          f"{fixed['equity']:.2f} | held {sorted(held)}")
+# Between the genuine sale and the first phantom one, SOPH sat above its floor:
+# still in Firestore's held, so those marks counted it twice, as cash and as a
+# holding. Its price at those ticks was not kept, so the marks are dropped, not
+# guessed.
+double = [pt for pt in watch if stops[0]["ts"] < pt["ts"] < stops[1]["ts"]]
+watch = [pt for pt in watch if pt not in double]
+print("double-counted marks dropped:", [(f(pt["ts"]), round(pt["equity"], 2)) for pt in double])
+fixed["watch"] = watch
 print("curve last", f(watch[-1]["ts"]), round(watch[-1]["equity"], 2),
-      "| min", round(min(w["equity"] for w in watch), 2))
-assert abs(fixed["equity"] - watch[-1]["equity"]) < 1.0, "document and curve disagree"
+      "| min", round(min(w["equity"] for w in watch), 2),
+      "| max", round(max(w["equity"] for w in watch), 2))
+if not repaired:
+    assert abs(fixed["equity"] - watch[-1]["equity"]) < 1.0, "document and curve disagree"
 if DRY:
     print("DRY RUN, nothing written. Add --write.")
 else:
