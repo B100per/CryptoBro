@@ -10,6 +10,7 @@ taker buy/sell volume for the top-N perpetuals every 5 minutes, into sqlite.
 """
 import json
 import sqlite3
+import statistics
 import sys
 import time
 import urllib.parse
@@ -156,21 +157,32 @@ def collect_once(db, kline_limit=3, history_days=None):
     return len(rows)
 
 
-def heal(db, now=None):
-    """On start, refill whatever the last shutdown missed.
+def heal(db, now=None, lookback_days=7):
+    """On start, refill every hole in the last week.
 
     The loop fetches 3 bars per tick, so a hole older than 15 minutes would
     stay a hole forever: every backtest and score after it would see the gap.
-    Pages back just past the last bar; a 12-hour outage is one page a symbol.
-    Returns the span refilled, in days (0 when there was nothing to do).
+    A hole is a 5-minute slot holding fewer than half the usual number of
+    symbols, whether it is at the end (the PC was off) or in the middle (a
+    refill that failed). Pages back from the oldest one; a 12-hour outage is
+    one page a symbol. Returns the span refilled, in days (0 when whole).
     """
     now = now or time.time() * 1000
-    last = db.execute("SELECT max(ts) FROM th_klines").fetchone()[0]
-    if not last or now - last < 4 * PERIOD_MS:
+    since = int(now - lookback_days * 86_400_000) // PERIOD_MS * PERIOD_MS
+    counts = dict(db.execute("SELECT ts, count(*) FROM th_klines WHERE ts >= ? GROUP BY ts",
+                             (since,)))
+    if not counts:
+        return 0                                     # nothing to extend; --history seeds
+    floor = statistics.median(counts.values()) / 2
+    older = db.execute("SELECT 1 FROM th_klines WHERE ts < ? LIMIT 1", (since,)).fetchone()
+    first = since if older else min(counts)          # history starts inside the window?
+    holes = [t for t in range(first, int(now) - 3 * PERIOD_MS, PERIOD_MS)
+             if counts.get(t, 0) < floor]
+    if not holes:
         return 0
-    days = (now - last) / 86_400_000 + 0.01          # a hair past the hole
-    print(f"heal: last bar {(now - last) / 3.6e6:.1f} h ago, refilling {days:.2f} d",
-          flush=True)
+    days = (now - holes[0]) / 86_400_000 + 0.01       # a hair past the oldest hole
+    print(f"heal: {len(holes)} empty slots, oldest {(now - holes[0]) / 3.6e6:.1f} h ago, "
+          f"refilling {days:.2f} d", flush=True)
     collect_th(db, days=days)
     collect_once(db, history_days=days)
     return days
