@@ -22,6 +22,15 @@ tickers = [
 assert top_symbols(tickers, n=1) == ["BTCUSDT"]
 assert top_symbols(tickers) == ["BTCUSDT", "ETHUSDT"]
 
+# a fractional day (what heal asks for) must still send an integer startTime:
+# Binance answers a float with 400 Bad Request, and the first boot did exactly that
+seen = []
+collector.get = lambda path, base=None, **q: seen.append(q) or []
+db0 = sqlite3.connect(":memory:")
+db0.execute(collector.SCHEMA_TH)
+collector.save_klines(db0, "BTCUSDT", days=0.76, base=collector.TH_BASE, table="th_klines")
+assert isinstance(seen[0]["startTime"], int), seen
+
 # heal: a fresh database or a bar 10 minutes old needs nothing; a bar 12 h old
 # refills a hair over half a day, through both collectors
 calls = []

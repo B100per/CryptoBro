@@ -85,7 +85,7 @@ def save_klines(db, sym, limit=3, days=None, base=None, path="/fapi/v1/klines",
     if not days:
         return store(get(path, base=base, symbol=sym, interval="5m", limit=limit))
 
-    start = int(time.time() * 1000) - days * 86_400_000
+    start = int(time.time() * 1000 - days * 86_400_000)   # int: a float startTime is a 400
     total, cursor = 0, start
     while cursor < time.time() * 1000:
         batch = get(path, base=base, symbol=sym, interval="5m",
