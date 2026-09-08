@@ -40,6 +40,13 @@ It scores every USDT pair on the board, buys the top 5, rebalances on a schedule
 Decision rule agreed with the owner: real money only when worst-case
 out-of-sample excess over buy-and-hold is > 0 **and** 30 days of paper match.
 
+**2026-09-08 cloud bug**: `paper_watch` wrote with `set(merge=True)`; a merge keeps
+map keys, so the coin the stop had just sold stayed in `held` and was sold again
+every 5 minutes (13 phantom SOPH sales, panel showed +194 %). Fixed with `update()`
+(fix/cloud-watch-merge, deployed). The book is repaired by running
+`python cloud/repair_volmom.py --write` once (dry by default); delete the script after.
+The phantom STOP fills stay under `books/volmom/fills`, which nothing reads.
+
 ## What is running, and where
 
 Moved to the Windows PC (F:\CryptoBro) on 2026-09-05. Three scheduled tasks,
@@ -126,7 +133,11 @@ Research (backtests, lab) stays local: it needs the 1.2 GB database.
 - Measure any strategy change with `python3 lab.py` / `backtest.py --robust`:
   report the **worst** start time as excess over buy-and-hold, never the best.
 - `paper.py` and `control.py` must never import the exchange client; `test_control.py` asserts it.
-- Live trading is only `trade.py --live`, which demands typing `yes i am sure`.
+- Live trading is only `trade.py --live` (chart rule) or `live.py --live` (momentum
+  rule, the one that passed); both demand typing `yes i am sure`. `live.py --watch --live`
+  is the 15 % stop-loss for the real account: it only ever sells, asks nothing, and is
+  meant for a 5-minute schedule. The `.env` key must be a **binance.th** key; the one
+  there on 2026-09-09 was refused (-2015), so nothing can be sent until that is fixed.
 
 ## Files
 
@@ -141,7 +152,7 @@ Research (backtests, lab) stays local: it needs the 1.2 GB database.
 | `paper.py` | forward test into sqlite; `--rule chart|volmom --breadth --min-vol` |
 | `control.py` | web panel + scheduler for both paper books |
 | `dashboard.py`, `progress.py` | self-refreshing HTML views |
-| `trade.py`, `binance_th.py`, `binance_client.py`, `risk.py` | the only path to real orders |
+| `trade.py`, `live.py`, `binance_th.py`, `binance_client.py`, `risk.py` | the only path to real orders; `live.py` keeps entries in `live_volmom.db` |
 | `cloud/` | Firebase: `functions/step.py` + `main.py` (the 12 h step), `public/index.html` (the panel) |
 | `deploy/` | systemd units + `install.sh` for a VPS; `deploy/windows/` scheduled tasks + `install.ps1` for a PC |
 | `lab_*.out` | measured results, see above |
