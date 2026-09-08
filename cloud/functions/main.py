@@ -75,7 +75,12 @@ def paper_watch(event: scheduler_fn.ScheduledEvent) -> None:
         if not current:
             continue                # no rebalance yet: nothing to value
         doc, fills = step.watch(current, st, prices)
-        ref.set(doc, merge=True)
+        # update, not set(merge=True): a merge is recursive, so a `held` map
+        # missing the coin the stop just sold would keep that coin in Firestore
+        # and the next tick would sell it again. It did, every 5 minutes, for
+        # two hours on 2026-09-08: cash grew by a SOPH sale a tick, and the
+        # panel showed +194 %. update() replaces the field.
+        ref.update(doc)
         for f in fills:
             ref.collection("fills").add(f)
             print(f"{st['title']}: stop-loss sold {f['symbol']} at {f['price']}")
