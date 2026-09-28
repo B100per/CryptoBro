@@ -1,0 +1,5 @@
+symbols=384 bars=4,993,920 rebalance=432 (36h) stop=15% floor=2,000, 5 start times
+
+  window     cap   worst%   median%    best%  maxDD%  trades
+      1d    none      1.0       7.9     70.3    38.8      72
+      3d    none      1.0       7.9     70.3    38.8      72

@@ -5,7 +5,7 @@ five-minute resolution from eight months ago: it is read once during a
 backtest, if ever. So keep 5m for the recent window and roll everything older
 into 1h bars, which is 12x smaller and answers the same long-horizon question.
 
-    python3 retention.py            # roll up and delete, default 30 days
+    python3 retention.py            # roll up and delete, default 365 days
     python3 retention.py --days 60
     python3 retention.py --dry-run  # report what would be rolled, change nothing
 
@@ -57,7 +57,12 @@ def rollup(db, src, dst, cutoff, dry_run=False):
 
 
 def main():
-    days = int(sys.argv[sys.argv.index("--days") + 1]) if "--days" in sys.argv else 30
+    # 365, not 30. The rollup is irreversible for the 5-minute bars it eats, and
+    # every lab number is a worst case across start times over the history that
+    # is left: at 45 days it read -48.9% where 90 days read -29.8%, on the same
+    # rule. Disk is 3.5 TB and a year of 5-minute bars is about 5 GB, so the
+    # window has to be longer than any backtest will ever ask for, not shorter.
+    days = int(sys.argv[sys.argv.index("--days") + 1]) if "--days" in sys.argv else 365
     dry = "--dry-run" in sys.argv
     cutoff = int(time.time() * 1000) - days * 86_400_000
 
