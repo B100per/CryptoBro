@@ -1,0 +1,5 @@
+symbols=385 (78 with positioning) bars=2,643,326 from the positioning window (23.2 d), rebalance=432 (36h), 5 start times
+
+                        rule    raw%   hold%  worst_ex%  median_ex%  best_ex%  maxDD%  trades
+       chart, no positioning     0.5    18.6      -45.0       -17.7      -9.1     2.0      10
+  chart + positioning (live)     0.5    18.6      -45.0       -17.7      -6.2     2.0      10

@@ -9,43 +9,63 @@ A long-only spot bot for Binance TH (`api.binance.th`), Python 3.9 stdlib only.
 It scores every USDT pair on the board, buys the top 5, rebalances on a schedule.
 **No real money has ever been traded.** All results are backtest or paper.
 
-## State of the research (read this first)
+## State of the research
 
-- The original chart-reading signal (`features.py`) has **no demonstrated edge**.
-  Its backtest return depends on which hour you start: same rule, same data,
-  -33.6 % to +86.7 % from a few hours' shift. See `lab_base.out`.
-- Fees dominate. Rebalancing hourly loses ~97 % in 90 days from fees alone.
-- **Cadence matters more than anything else measured.** Both surviving rules
-  FAIL the worst-case test at 12 h and pass only at 36 h (`lab.out`: volmom
-  -55 % vs +4.6 %; chart -40 % vs +23 %). The paper books and the cloud ran at
-  12 h until 2026-09-05 by mistake; both now rebalance every **36 h**.
-- On the 90 days ending 2026-09-05 (`lab_stop.out`, 36 h, ≥ 2,000 USDT/5 min,
-  5 start times, excess over buy-and-hold):
-  - `vol-scaled momentum 7d`: worst **+18.8 %**, median +69 %. A 15 % stop-loss
-    checked every 5 min lifts that to worst **+28.9 %**, median +95 %, and cuts
-    the drawdown 42 % → 36 %. 20 % is similar; 5 % and 10 % are worse or noisy.
-    The stop is live on this book. (Any stop hurt at 12 h: the cadence, not
-    the stop, was the problem.)
-  - `chart + breadth 60 %`: worst **-29.8 %** at 36 h, -3.5 % at 12 h. It no
-    longer passes on this window; every stop level made it worse. It keeps
-    running as the comparison book, with no stop.
-- Plain momentum, reversal, breakout, volume-surge, "hold while rising" all
-  **failed** the worst-case test. See `lab_lean.out`, `lab_exit.out`. Thinner
-  coins (floor 500) made the worst case worse: `lab_lean.out` question A.
-- The positioning data (funding, OI, long/short) that motivated the project has
-  **never been tested**: Binance keeps 30 days and the collector restarted
-  2026-09-05 on the PC. Around 2026-10-05 there is enough history to try
-  `features.score(chart, pos)`.
-
+**No real money has ever been traded.** Everything below is paper or backtest.
 Decision rule agreed with the owner: real money only when worst-case
 out-of-sample excess over buy-and-hold is > 0 **and** 30 days of paper match.
 
-**2026-09-08 cloud bug**: `paper_watch` wrote with `set(merge=True)`; a merge keeps
-map keys, so the coin the stop had just sold stayed in `held` and was sold again
-every 5 minutes (13 phantom SOPH sales, panel showed +194 %). Fixed with `update()`
-(fix/cloud-watch-merge, deployed). The book is repaired by running
-`python cloud/repair_volmom.py --write` once (dry by default); delete the script after.
-The phantom STOP fills stay under `books/volmom/fills`, which nothing reads.
+### Paper, 5 Sep -> 28 Sep 2026 (23 days, raw returns)
+
+| book | this PC | cloud | board, same window |
+|---|---|---|---|
+| chart + breadth 60% | +30.9%, maxDD 5.5% | +17.3% | median coin +16.8%, mean +25.2% |
+| vol-scaled momentum | +9.5%, maxDD 30.6% | -2.9%, maxDD 38.1% | BTC +5.0%, ETH +9.4% |
+
+Two things this says, both uncomfortable:
+
+**Timing luck is as large as the edge.** The same rule, rebalanced a few hours
+apart, is 12-13 points apart on both books. Any single number from either book
+is mostly a draw from that spread.
+
+**The chart book's +30.9% is three coins.** Realised P/L: ZAMA +148, JST +50,
+PROVE +42, STRK +32, everything else under 20. It was invested 39% of the time
+and bought on 5 of its 8 rebalances. A backtest of the same rule over the same
+23 days returns +0.5% raw against +18.6% buy-and-hold (lab_pos.out). The live
+result sits far outside the spread of five start times, and nothing in the code
+explains it: the positioning input, the one real difference between the live
+rule and the backtested one, moves the median not at all (see below). Until
+that gap is explained, the chart book's number is not evidence of an edge.
+
+### What the labs say now (108 days of 5-minute bars, restored 29 Sep)
+
+- `lab_stop_108d.out` vs `lab_stop.out` (90 days): **the stop level is noise.**
+  5% went +11.9 -> -10.2 worst-case, 10% went -14.2 -> +30.1, purely from adding
+  18 days. We chose 15% because it led on 90 days; on 108 days 20% leads. Left
+  at 15% because no level is defensibly better, not because 15% won.
+- Stable across both datasets: volmom's worst case is positive at nearly every
+  stop level; chart's is negative at every one, and on 108 days even its best
+  start time loses to buy-and-hold.
+- `lab_chase.out`, `lab_chase_wide.out`: **refusing to chase a spike: measured,
+  rejected.** A 100%/1-day cap is a clean peak (worst +19.7 -> +57.3, median
+  +99.3 -> +147.2, decaying back to baseline by 300%). It would also have
+  blocked **0 of the 51 buys the live book actually made**. IOST, the trade that
+  prompted the idea, was -18% on the day this PC bought it; MUBARAK, the worst
+  trade at -72 USDT, was +85%, just under the cap. A gate that changes nothing
+  live and everything in backtest is a curve fit. Not shipped.
+- `lab_pos.out`: **the live chart rule is not the backtested one, and it does
+  not matter.** backtest.chart_signal scores `score(chart, None)`; features.load,
+  which paper.py and the cloud run, scores `score(chart, pos)` - funding, OI
+  change, smart-money/retail split, for the 78 of 385 symbols the futures
+  collector covers. Measured over the 23 days positioning exists: identical
+  worst and median, best case -9.1 -> -6.2. The difference HANDOFF had been
+  waiting to test since September is real but too small to matter.
+
+### Reading the lab tables
+
+Every column except `raw%` and `hold%` is **excess over buy-and-hold**. Reading
+an excess figure against a live book's raw return is how the chart book looked
+impossible for a day; lab_pos.py prints both for exactly that reason.
 
 ## What is running, and where
 
@@ -156,3 +176,5 @@ Research (backtests, lab) stays local: it needs the 1.2 GB database.
 | `cloud/` | Firebase: `functions/step.py` + `main.py` (the 12 h step), `public/index.html` (the panel) |
 | `deploy/` | systemd units + `install.sh` for a VPS; `deploy/windows/` scheduled tasks + `install.ps1` for a PC |
 | `lab_*.out` | measured results, see above |
+| `lab_chase.py` | does refusing to chase a spike help? measured, rejected |
+| `lab_pos.py` | is the live chart rule (with positioning) better than the backtested one? no |
