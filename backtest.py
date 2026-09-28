@@ -102,7 +102,11 @@ def run(bars, top=5, rebalance=12, fee=0.001, min_score=0.5, start_equity=1000.0
                 vol = sorted(r[5] * r[4] for r in rows[max(0, i - 288):i])
                 if not vol or vol[len(vol) // 2] < min_quote_vol:
                     continue
-            sc = score_fn(rows, i, window)
+            # A score_fn that sets wants_symbol gets the symbol too: the live
+            # chart rule looks up per-symbol positioning, and there is no way
+            # to measure it without knowing which coin the rows belong to.
+            sc = (score_fn(rows, i, window, sym) if getattr(score_fn, "wants_symbol", False)
+                  else score_fn(rows, i, window))
             if sc is None:
                 continue
             prices[sym] = rows[i][4]

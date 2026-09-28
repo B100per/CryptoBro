@@ -1,0 +1,13 @@
+symbols=385 bars=11,876,243 min_quote_vol=2,000 rebalance=432 (36h), 5 start times
+
+                rule   stop   worst%   median%    best%  maxDD%  trades  stops
+ chart + breadth 60%     0%    -49.1      -9.3     -0.6    16.9      28       
+ chart + breadth 60%     5%    -44.4      -4.4      4.4     8.0      28       
+ chart + breadth 60%    10%    -53.3     -11.0      2.1    13.5      28       
+ chart + breadth 60%    15%    -52.3     -12.5     -1.5    15.8      28       
+ chart + breadth 60%    20%    -49.1      -6.1     -0.6    14.7      28       
+   vol-scaled mom 7d     0%     41.0      99.3    185.0    45.5     186       
+   vol-scaled mom 7d     5%    -10.2      24.6    135.4    40.0     227       
+   vol-scaled mom 7d    10%     30.1      41.6    167.7    43.3     206       
+   vol-scaled mom 7d    15%     20.2      99.8    178.6    40.6     195       
+   vol-scaled mom 7d    20%     52.5     108.4    180.1    37.5     191       

@@ -11,12 +11,16 @@ buy-and-hold.
 """
 import sqlite3
 import statistics
+import sys
 
 import signals
 from backtest import load_bars, robust
 
 CAPS = (None, 1.00, 0.50, 0.25)
 WINDOWS = (("1d", 288), ("3d", 864))
+# The first run put the best worst-case at the widest cap it tried, which is
+# where a grid lies to you: pass --caps to look past the edge.
+#     python3 lab_chase.py --caps 1.0,1.5,2.0,3.0 --windows 1d
 
 
 def no_chase(fn, cap, bars):
@@ -31,6 +35,12 @@ def no_chase(fn, cap, bars):
 
 
 def main():
+    caps, windows = CAPS, WINDOWS
+    if "--caps" in sys.argv:
+        caps = (None,) + tuple(float(x) for x in sys.argv[sys.argv.index("--caps") + 1].split(","))
+    if "--windows" in sys.argv:
+        keep = sys.argv[sys.argv.index("--windows") + 1].split(",")
+        windows = tuple(w for w in WINDOWS if w[0] in keep)
     bars = load_bars(sqlite3.connect("data.db"), None, "th_klines")
     print(f"symbols={len(bars)} bars={sum(len(v) for v in bars.values()):,} "
           f"rebalance=432 (36h) stop=15% floor=2,000, 5 start times", flush=True)
@@ -39,7 +49,7 @@ def main():
     # (window, cap): the uncapped rule is the same whatever the window, so it
     # runs once. An earlier version broke out of the inner loop on cap None and
     # measured nothing else at all.
-    runs = [("-", 288, None)] + [(n, w, c) for n, w in WINDOWS for c in CAPS if c]
+    runs = [("-", 288, None)] + [(n, w, c) for n, w in windows for c in caps if c]
     for name, w, cap in runs:
         rows = robust(bars, offsets=5, top=5, rebalance=432, fee=0.001, min_score=0.0,
                       score_fn=no_chase(base, cap, w), window=2016, min_quote_vol=2000,
