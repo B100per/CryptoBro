@@ -1,0 +1,6 @@
+symbols=384 bars=4,993,920 min_quote_vol=2,000 rebalance=432 (36h), 5 start times
+
+                rule   stop   worst%   median%    best%  maxDD%  trades  stops
+ chart + breadth 60%     0%    -48.9     -22.8     37.5    10.2       8       
+ chart + breadth 60%     5%    -40.3     -14.4     36.4    10.4       8       
+ chart + breadth 60%    10%    -49.5     -14.3     37.5    10.2       8       
